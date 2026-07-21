@@ -108,6 +108,48 @@ router.post('/providers/:id/delete', async (req, res) => {
   res.redirect('/providers');
 });
 
+// Test connection ke provider (JSON response biar UI bisa render feedback).
+router.post('/providers/:id/test', async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const provider = await prisma.provider.findUnique({ where: { id } });
+  if (!provider) return res.status(404).json({ ok: false, message: 'Provider tidak ditemukan' });
+  try {
+    const { getAdapter } = require('../providers');
+    const adapter = getAdapter(provider.type);
+    if (typeof adapter.testConnection !== 'function') {
+      return res.json({ ok: false, message: 'Adapter tidak mendukung test connection' });
+    }
+    const result = await adapter.testConnection(provider);
+    res.json(result);
+  } catch (e) {
+    res.json({ ok: false, message: e.message });
+  }
+});
+
+// Test credentials SEBELUM disimpan (dari form add provider).
+router.post('/providers/test-preview', async (req, res) => {
+  const { type, qrisStatic, credentials } = req.body;
+  try {
+    const { getAdapter } = require('../providers');
+    const adapter = getAdapter(type);
+    if (typeof adapter.testConnection !== 'function') {
+      return res.json({ ok: false, message: 'Adapter tidak mendukung test' });
+    }
+    // Bangun provider "sementara" (tanpa disimpan) buat test.
+    const fakeProvider = {
+      id: 0,
+      name: 'preview',
+      type,
+      qrisStatic: qrisStatic || '',
+      credentials: credentials || '{}',
+    };
+    const result = await adapter.testConnection(fakeProvider);
+    res.json(result);
+  } catch (e) {
+    res.json({ ok: false, message: e.message });
+  }
+});
+
 // ----- API Keys -----
 router.get('/apikeys', async (req, res) => {
   const keys = await prisma.apiKey.findMany({ orderBy: { createdAt: 'desc' } });

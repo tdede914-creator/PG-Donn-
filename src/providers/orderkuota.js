@@ -70,6 +70,37 @@ async function fetchMutations(provider) {
 }
 
 /**
+ * Test koneksi ke provider. Return { ok, message, sample } supaya UI bisa kasih
+ * feedback jelas ke user tanpa lihat log.
+ */
+async function testConnection(provider) {
+  try {
+    const mutations = await fetchMutations(provider);
+    return {
+      ok: true,
+      message: `Berhasil terhubung. Ditemukan ${mutations.length} mutasi terbaru.`,
+      sample: mutations.slice(0, 3).map((m) => ({
+        externalId: m.externalId,
+        amount: m.amount,
+        occurredAt: m.occurredAt,
+      })),
+    };
+  } catch (err) {
+    // Cek pola error yang umum -> kasih saran spesifik ke user.
+    const msg = err.message || String(err);
+    let hint = '';
+    if (/401|403|token|auth/i.test(msg)) {
+      hint = ' — Kemungkinan authToken kadaluarsa. Login ulang di dashboard OrderKuota (browser DevTools F12 → Network → copy auth_token dari request).';
+    } else if (/ENOTFOUND|ECONNREFUSED|timeout|ETIMEDOUT/i.test(msg)) {
+      hint = ' — Cek koneksi internet VPS ke internet, atau endpoint diblokir/salah.';
+    } else if (/JSON invalid/i.test(msg)) {
+      hint = ' — Format credentials bukan JSON valid. Cek kurung {} dan tanda kutip ".';
+    }
+    return { ok: false, message: msg + hint };
+  }
+}
+
+/**
  * Normalisasi response OrderKuota.
  *
  * Struktur umum (bisa berbeda per versi):
@@ -125,4 +156,4 @@ function normalize(data) {
     .filter((m) => m.amount > 0);
 }
 
-module.exports = { fetchMutations };
+module.exports = { fetchMutations, testConnection };
