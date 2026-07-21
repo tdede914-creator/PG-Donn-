@@ -1,0 +1,122 @@
+// Prisma schema untuk Payment Gateway
+// Ubah `provider = "sqlite"` ke "mysql" / "postgresql" bila mau pindah DB.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// -----------------------------------------------------------------------------
+// USER (admin dashboard)
+// -----------------------------------------------------------------------------
+model User {
+  id           Int      @id @default(autoincrement())
+  username     String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+}
+
+// -----------------------------------------------------------------------------
+// PROVIDER: konfigurasi akun DANA Bisnis / OrderKuota
+// Boleh punya banyak provider aktif; semua akan di-poll.
+// -----------------------------------------------------------------------------
+model Provider {
+  id          Int      @id @default(autoincrement())
+  name        String                 // label bebas, mis. "OK utama"
+  type        String                 // "orderkuota" | "dana_bisnis"
+  // Static QRIS string dari merchant (hasil scan QR di aplikasi)
+  qrisStatic  String
+  // Credential provider (username, token, phone, pin, dll) sebagai JSON string
+  credentials String                 // JSON string
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  invoices  Invoice[]
+  mutations Mutation[]
+}
+
+// -----------------------------------------------------------------------------
+// API KEY: dipakai merchant/aplikasi kamu untuk create invoice via REST
+// -----------------------------------------------------------------------------
+model ApiKey {
+  id        Int      @id @default(autoincrement())
+  label     String
+  key       String   @unique          // public key, dipakai di header X-API-Key
+  secret    String                    // secret untuk sign webhook
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  invoices Invoice[]
+}
+
+// -----------------------------------------------------------------------------
+// INVOICE: satu tagihan / transaksi
+// -----------------------------------------------------------------------------
+model Invoice {
+  id            Int      @id @default(autoincrement())
+  reference     String   @unique             // ID public, mis. INV-xxxxx
+  merchantRef   String?                      // reference dari merchant (order_id kamu)
+  amount        Int                          // nominal ASLI (rupiah) tanpa kode unik
+  uniqueCode    Int                          // kode unik 1-999
+  totalAmount   Int                          // amount + uniqueCode (yang harus dibayar)
+  description   String?
+  status        String   @default("PENDING") // PENDING | PAID | EXPIRED | CANCELLED
+  qrisDynamic   String                       // hasil generate QRIS dinamis
+  expiredAt     DateTime
+  paidAt        DateTime?
+  callbackUrl   String?                      // webhook URL dari merchant
+  // relasi
+  providerId    Int
+  provider      Provider @relation(fields: [providerId], references: [id])
+  apiKeyId      Int?
+  apiKey        ApiKey?  @relation(fields: [apiKeyId], references: [id])
+  matchedMutationId Int? @unique
+  matchedMutation   Mutation? @relation(fields: [matchedMutationId], references: [id])
+
+  webhookLogs   WebhookLog[]
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([status])
+  @@index([totalAmount, status])
+}
+
+// -----------------------------------------------------------------------------
+// MUTATION: raw mutasi yang di-fetch dari provider (deduped)
+// -----------------------------------------------------------------------------
+model Mutation {
+  id            Int      @id @default(autoincrement())
+  providerId    Int
+  provider      Provider @relation(fields: [providerId], references: [id])
+  externalId    String                       // ID unik di provider (untuk dedup)
+  amount        Int
+  rawPayload    String                       // JSON string mutasi asli
+  occurredAt    DateTime
+  createdAt     DateTime @default(now())
+
+  matchedInvoice Invoice?
+
+  @@unique([providerId, externalId])
+  @@index([amount])
+}
+
+// -----------------------------------------------------------------------------
+// WEBHOOK LOG: histori pengiriman webhook ke merchant
+// -----------------------------------------------------------------------------
+model WebhookLog {
+  id          Int      @id @default(autoincrement())
+  invoiceId   Int
+  invoice     Invoice  @relation(fields: [invoiceId], references: [id])
+  url         String
+  requestBody String
+  responseStatus Int?
+  responseBody   String?
+  success     Boolean  @default(false)
+  attempt     Int      @default(1)
+  createdAt   DateTime @default(now())
+}

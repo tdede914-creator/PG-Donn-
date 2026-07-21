@@ -1,0 +1,42 @@
+<!doctype html>
+<html>
+<head><%- include('partials/head', { title: 'API Keys' }) %></head>
+<body class="bg-slate-100 min-h-screen">
+  <%- include('partials/nav') %>
+  <main class="max-w-6xl mx-auto p-6 space-y-4">
+    <h1 class="text-2xl font-bold">API Keys</h1>
+    <% if (flash) { %><div class="bg-amber-100 text-amber-800 px-3 py-2 rounded text-sm"><%= flash %></div><% } %>
+
+    <form method="POST" action="/apikeys" class="bg-white p-4 rounded-lg shadow-sm flex gap-2 text-sm">
+      <input name="label" placeholder="Label, mis. app-produksi" class="border rounded px-3 py-2 flex-1" required />
+      <button class="bg-slate-900 text-white px-4 py-2 rounded">Buat API Key</button>
+    </form>
+
+    <div class="bg-white rounded-lg shadow-sm overflow-hidden">
+      <table class="w-full text-sm">
+        <thead class="bg-slate-50 text-slate-500">
+          <tr><th class="text-left px-4 py-2">Label</th><th class="text-left px-4 py-2">Public Key</th><th class="text-left px-4 py-2">Secret</th><th class="text-left px-4 py-2">Status</th><th class="text-left px-4 py-2"></th></tr>
+        </thead>
+        <tbody>
+          <% keys.forEach(function(k) { %>
+            <tr class="border-t">
+              <td class="px-4 py-2"><%= k.label %></td>
+              <td class="px-4 py-2 font-mono text-xs"><%= k.key %></td>
+              <td class="px-4 py-2 font-mono text-xs text-slate-500"><%= k.secret.slice(0, 6) %>…<%= k.secret.slice(-4) %></td>
+              <td class="px-4 py-2"><span class="px-2 py-0.5 rounded text-xs <%= k.isActive ? 'bg-green-100 text-green-700' : 'bg-slate-200 text-slate-600' %>"><%= k.isActive ? 'AKTIF' : 'NONAKTIF' %></span></td>
+              <td class="px-4 py-2 space-x-2">
+                <form method="POST" action="/apikeys/<%= k.id %>/toggle" class="inline"><button class="text-xs text-slate-600 hover:text-slate-900">Toggle</button></form>
+                <form method="POST" action="/apikeys/<%= k.id %>/delete" class="inline" onsubmit="return confirm('Hapus API key ini?')"><button class="text-xs text-red-600 hover:text-red-800">Hapus</button></form>
+              </td>
+            </tr>
+          <% }) %>
+          <% if (!keys.length) { %>
+            <tr><td class="px-4 py-6 text-center text-slate-400" colspan="5">Belum ada API key.</td></tr>
+          <% } %>
+        </tbody>
+      </table>
+    </div>
+    <p class="text-xs text-slate-500">Pakai <code>X-API-Key: pk_...</code> di header saat memanggil <code>/api/v1/*</code>.</p>
+  </main>
+</body>
+</html>

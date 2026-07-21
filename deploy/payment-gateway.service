@@ -1,0 +1,47 @@
+# =============================================================================
+# systemd unit (ALTERNATIF PM2)
+# =============================================================================
+# Kalau kamu ga mau pakai PM2, pakai file ini.
+#
+# Cara pakai:
+#   1. Edit WorkingDirectory + User + ExecStart path Node kalau perlu.
+#   2. sudo cp deploy/payment-gateway.service /etc/systemd/system/
+#   3. sudo systemctl daemon-reload
+#   4. sudo systemctl enable payment-gateway
+#   5. sudo systemctl start payment-gateway
+#   6. Cek: sudo systemctl status payment-gateway
+#   7. Log: sudo journalctl -u payment-gateway -f
+# =============================================================================
+
+[Unit]
+Description=Payment Gateway (QRIS)
+Documentation=file:///opt/payment-gateway/README.md
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/opt/payment-gateway
+Environment="NODE_ENV=production"
+EnvironmentFile=/opt/payment-gateway/.env
+ExecStart=/usr/bin/node src/server.js
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=payment-gateway
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/opt/payment-gateway
+
+# Resource limits
+LimitNOFILE=65535
+MemoryLimit=512M
+
+[Install]
+WantedBy=multi-user.target

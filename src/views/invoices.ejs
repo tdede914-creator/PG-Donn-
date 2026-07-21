@@ -1,0 +1,57 @@
+<!doctype html>
+<html>
+<head><%- include('partials/head', { title: 'Invoices' }) %></head>
+<body class="bg-slate-100 min-h-screen">
+  <%- include('partials/nav') %>
+  <main class="max-w-6xl mx-auto p-6 space-y-4">
+    <div class="flex items-center gap-3">
+      <h1 class="text-2xl font-bold">Invoices</h1>
+      <form class="ml-auto flex gap-2">
+        <select name="status" onchange="this.form.submit()" class="border rounded px-2 py-1 text-sm">
+          <option value="">Semua</option>
+          <% ['PENDING','PAID','EXPIRED','CANCELLED'].forEach(function(s){ %>
+            <option value="<%= s %>" <%= status === s ? 'selected' : '' %>><%= s %></option>
+          <% }) %>
+        </select>
+      </form>
+    </div>
+    <div class="bg-white rounded-lg shadow-sm overflow-hidden">
+      <table class="w-full text-sm">
+        <thead class="bg-slate-50 text-slate-500">
+          <tr>
+            <th class="text-left px-4 py-2">Reference</th>
+            <th class="text-left px-4 py-2">Merchant Ref</th>
+            <th class="text-left px-4 py-2">Provider</th>
+            <th class="text-right px-4 py-2">Amount</th>
+            <th class="text-right px-4 py-2">Total</th>
+            <th class="text-left px-4 py-2">Status</th>
+            <th class="text-left px-4 py-2">Waktu</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% invoices.forEach(function(inv) { %>
+            <tr class="border-t">
+              <td class="px-4 py-2"><a class="text-blue-600 hover:underline" href="/invoices/<%= inv.reference %>"><%= inv.reference %></a></td>
+              <td class="px-4 py-2 text-slate-500"><%= inv.merchantRef || '-' %></td>
+              <td class="px-4 py-2"><%= inv.provider ? inv.provider.name : '-' %></td>
+              <td class="px-4 py-2 text-right">Rp <%= inv.amount.toLocaleString('id-ID') %></td>
+              <td class="px-4 py-2 text-right font-semibold">Rp <%= inv.totalAmount.toLocaleString('id-ID') %></td>
+              <td class="px-4 py-2">
+                <span class="px-2 py-0.5 rounded text-xs font-semibold
+                  <%= inv.status === 'PAID' ? 'bg-green-100 text-green-700' :
+                      inv.status === 'PENDING' ? 'bg-amber-100 text-amber-700' :
+                      inv.status === 'EXPIRED' ? 'bg-slate-200 text-slate-600' :
+                      'bg-red-100 text-red-700' %>"><%= inv.status %></span>
+              </td>
+              <td class="px-4 py-2 text-slate-500"><%= new Date(inv.createdAt).toLocaleString('id-ID') %></td>
+            </tr>
+          <% }) %>
+          <% if (!invoices.length) { %>
+            <tr><td class="px-4 py-6 text-center text-slate-400" colspan="7">Kosong.</td></tr>
+          <% } %>
+        </tbody>
+      </table>
+    </div>
+  </main>
+</body>
+</html>

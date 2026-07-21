@@ -1,0 +1,14 @@
+node_modules/
+.env
+.env.local
+*.db
+*.db-journal
+prisma/dev.db
+prisma/prod.db
+prisma/migrations/dev/
+.DS_Store
+npm-debug.log
+logs/
+*.log
+backups/
+data/
