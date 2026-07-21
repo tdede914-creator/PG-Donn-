@@ -1,0 +1,66 @@
+<!doctype html>
+<html>
+<head><%- include('partials/head', { title: 'Providers' }) %></head>
+<body class="bg-slate-100 min-h-screen">
+  <%- include('partials/nav') %>
+  <main class="max-w-6xl mx-auto p-6 space-y-6">
+    <h1 class="text-2xl font-bold">Providers</h1>
+    <% if (flash) { %><div class="bg-green-100 text-green-700 px-3 py-2 rounded text-sm"><%= flash %></div><% } %>
+    <% if (error) { %><div class="bg-red-100 text-red-700 px-3 py-2 rounded text-sm"><%= error %></div><% } %>
+
+    <div class="grid md:grid-cols-2 gap-6">
+      <div class="bg-white rounded-lg shadow-sm p-4">
+        <h2 class="font-semibold mb-3">Tambah Provider Baru</h2>
+        <form method="POST" action="/providers" class="space-y-3 text-sm">
+          <div>
+            <label class="block mb-1">Nama</label>
+            <input name="name" class="w-full border rounded px-3 py-2" placeholder="mis. OK utama" required />
+          </div>
+          <div>
+            <label class="block mb-1">Type</label>
+            <select name="type" class="w-full border rounded px-3 py-2">
+              <option value="orderkuota">OrderKuota</option>
+              <option value="dana_bisnis">DANA Bisnis</option>
+            </select>
+          </div>
+          <div>
+            <label class="block mb-1">Static QRIS String</label>
+            <textarea name="qrisStatic" class="w-full border rounded px-3 py-2 h-24 font-mono text-xs" placeholder="000201010211026..." required></textarea>
+            <p class="text-xs text-slate-500 mt-1">Ambil dari aplikasi merchant (Scan QR statik-mu → decode → paste stringnya di sini).</p>
+          </div>
+          <div>
+            <label class="block mb-1">Credentials (JSON)</label>
+            <textarea name="credentials" class="w-full border rounded px-3 py-2 h-40 font-mono text-xs" placeholder='{&#10;  "authToken": "...",&#10;  "authUsername": "..."&#10;}'></textarea>
+            <p class="text-xs text-slate-500 mt-1">Untuk OrderKuota: authToken + authUsername. Untuk DANA Bisnis: endpoint + headers + body + resultsPath.</p>
+          </div>
+          <button class="bg-slate-900 text-white px-4 py-2 rounded">Simpan</button>
+        </form>
+      </div>
+
+      <div class="bg-white rounded-lg shadow-sm p-4">
+        <h2 class="font-semibold mb-3">Provider Terdaftar</h2>
+        <% if (!providers.length) { %>
+          <p class="text-slate-500 text-sm">Belum ada provider.</p>
+        <% } %>
+        <ul class="space-y-3">
+          <% providers.forEach(function(p) { %>
+            <li class="border rounded p-3">
+              <div class="flex items-center">
+                <div>
+                  <div class="font-semibold"><%= p.name %></div>
+                  <div class="text-xs text-slate-500"><%= p.type %> · dibuat <%= new Date(p.createdAt).toLocaleDateString('id-ID') %></div>
+                </div>
+                <span class="ml-auto px-2 py-0.5 text-xs rounded <%= p.isActive ? 'bg-green-100 text-green-700' : 'bg-slate-200 text-slate-600' %>"><%= p.isActive ? 'AKTIF' : 'NONAKTIF' %></span>
+              </div>
+              <div class="mt-2 flex gap-2">
+                <form method="POST" action="/providers/<%= p.id %>/toggle"><button class="text-xs text-slate-600 hover:text-slate-900">Toggle</button></form>
+                <form method="POST" action="/providers/<%= p.id %>/delete" onsubmit="return confirm('Hapus provider ini?')"><button class="text-xs text-red-600 hover:text-red-800">Hapus</button></form>
+              </div>
+            </li>
+          <% }) %>
+        </ul>
+      </div>
+    </div>
+  </main>
+</body>
+</html>

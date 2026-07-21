@@ -1,0 +1,77 @@
+# =============================================================================
+# Nginx reverse proxy untuk Payment Gateway
+# =============================================================================
+# Cara pakai:
+#   1. Copy file ini ke /etc/nginx/sites-available/payment-gateway
+#      sudo cp deploy/nginx.conf.example /etc/nginx/sites-available/payment-gateway
+#   2. Ganti "pg.domainkamu.com" dengan domain kamu:
+#      sudo sed -i 's/pg.domainkamu.com/DOMAIN_KAMU/g' /etc/nginx/sites-available/payment-gateway
+#   3. Enable site:
+#      sudo ln -s /etc/nginx/sites-available/payment-gateway /etc/nginx/sites-enabled/
+#      sudo nginx -t && sudo systemctl reload nginx
+#   4. Install SSL Let's Encrypt (gratis):
+#      sudo apt install -y certbot python3-certbot-nginx
+#      sudo certbot --nginx -d pg.domainkamu.com
+#      Certbot otomatis akan meng-update file ini menambahkan blok ssl_certificate.
+#   5. Update BASE_URL di .env jadi https://pg.domainkamu.com lalu:
+#      pm2 restart payment-gateway
+# =============================================================================
+
+# Rate limit zone untuk endpoint API (opsional, mencegah abuse)
+limit_req_zone $binary_remote_addr zone=pg_api:10m rate=10r/s;
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name pg.domainkamu.com;
+
+    # Redirect ke HTTPS setelah certbot dijalankan.
+    # Sebelum certbot: hapus 3 baris di bawah dan aktifkan blok location.
+    # return 301 https://$host$request_uri;
+
+    # Log
+    access_log /var/log/nginx/pg-access.log;
+    error_log  /var/log/nginx/pg-error.log;
+
+    # Body limit (webhook + API upload)
+    client_max_body_size 2M;
+
+    # Timeouts
+    proxy_read_timeout 60s;
+    proxy_send_timeout 60s;
+
+    # Real IP dari client
+    set_real_ip_from 127.0.0.1;
+    real_ip_header   X-Forwarded-For;
+
+    location / {
+        proxy_pass         http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header   Host              $host;
+        proxy_set_header   X-Real-IP         $remote_addr;
+        proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto $scheme;
+        proxy_set_header   Upgrade           $http_upgrade;
+        proxy_set_header   Connection        "upgrade";
+    }
+
+    # Rate limit khusus /api/*
+    location /api/ {
+        limit_req zone=pg_api burst=20 nodelay;
+        proxy_pass         http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header   Host              $host;
+        proxy_set_header   X-Real-IP         $remote_addr;
+        proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto $scheme;
+    }
+
+    # Blokir akses ke file sensitif
+    location ~ /\.(env|git|db)$ {
+        deny all;
+        return 404;
+    }
+}
+
+# Setelah menjalankan certbot, block di atas akan otomatis dilengkapi dengan
+# server { listen 443 ssl; ... } dan sertifikat Let's Encrypt.

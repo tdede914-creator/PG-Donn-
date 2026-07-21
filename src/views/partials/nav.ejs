@@ -1,0 +1,13 @@
+<nav class="bg-slate-900 text-white">
+  <div class="max-w-6xl mx-auto flex items-center gap-6 px-4 py-3">
+    <a href="/" class="font-bold text-lg">PG Admin</a>
+    <a href="/" class="<%= active === 'dashboard' ? 'text-white' : 'text-slate-300 hover:text-white' %>">Dashboard</a>
+    <a href="/invoices" class="<%= active === 'invoices' ? 'text-white' : 'text-slate-300 hover:text-white' %>">Invoices</a>
+    <a href="/providers" class="<%= active === 'providers' ? 'text-white' : 'text-slate-300 hover:text-white' %>">Providers</a>
+    <a href="/apikeys" class="<%= active === 'apikeys' ? 'text-white' : 'text-slate-300 hover:text-white' %>">API Keys</a>
+    <div class="ml-auto flex items-center gap-3 text-sm">
+      <a href="/account" class="text-slate-300 hover:text-white">@<%= session.username %></a>
+      <form action="/logout" method="POST"><button class="text-red-300 hover:text-red-200">Logout</button></form>
+    </div>
+  </div>
+</nav>

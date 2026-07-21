@@ -1,0 +1,54 @@
+# =============================================================================
+# docker-compose untuk deploy 1-perintah.
+# =============================================================================
+# Jalankan:
+#   docker compose up -d --build
+# Stop:
+#   docker compose down
+# Log:
+#   docker compose logs -f
+# Update:
+#   git pull && docker compose up -d --build
+# =============================================================================
+
+services:
+  app:
+    build: .
+    container_name: payment-gateway
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    environment:
+      # Force DATABASE_URL ke volume di dalam container
+      DATABASE_URL: "file:/app/data/prod.db"
+    volumes:
+      - pg_data:/app/data
+      - pg_logs:/app/logs
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/pay/nope"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # Opsional: nginx reverse proxy + certbot bisa ditambahkan di sini.
+  # Contoh dengan caddy (lebih simpel HTTPS otomatis):
+  # caddy:
+  #   image: caddy:2-alpine
+  #   restart: unless-stopped
+  #   ports:
+  #     - "80:80"
+  #     - "443:443"
+  #   volumes:
+  #     - ./deploy/Caddyfile:/etc/caddy/Caddyfile
+  #     - caddy_data:/data
+  #     - caddy_config:/config
+  #   depends_on:
+  #     - app
+
+volumes:
+  pg_data:
+  pg_logs:
+  # caddy_data:
+  # caddy_config:

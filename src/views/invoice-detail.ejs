@@ -1,0 +1,67 @@
+<!doctype html>
+<html>
+<head><%- include('partials/head', { title: invoice.reference }) %></head>
+<body class="bg-slate-100 min-h-screen">
+  <%- include('partials/nav') %>
+  <main class="max-w-4xl mx-auto p-6 space-y-6">
+    <div class="flex items-center justify-between">
+      <h1 class="text-2xl font-bold"><%= invoice.reference %></h1>
+      <a class="text-blue-600 hover:underline text-sm" href="/pay/<%= invoice.reference %>" target="_blank">Buka halaman bayar &rarr;</a>
+    </div>
+
+    <div class="grid md:grid-cols-2 gap-4">
+      <div class="bg-white rounded-lg shadow-sm p-4 space-y-2">
+        <div><b>Status:</b>
+          <span class="px-2 py-0.5 rounded text-xs font-semibold
+            <%= invoice.status === 'PAID' ? 'bg-green-100 text-green-700' :
+                invoice.status === 'PENDING' ? 'bg-amber-100 text-amber-700' :
+                invoice.status === 'EXPIRED' ? 'bg-slate-200 text-slate-600' :
+                'bg-red-100 text-red-700' %>"><%= invoice.status %></span>
+        </div>
+        <div><b>Amount:</b> Rp <%= invoice.amount.toLocaleString('id-ID') %></div>
+        <div><b>Unique code:</b> <%= invoice.uniqueCode %></div>
+        <div><b>Total (bayar):</b> Rp <%= invoice.totalAmount.toLocaleString('id-ID') %></div>
+        <div><b>Merchant ref:</b> <%= invoice.merchantRef || '-' %></div>
+        <div><b>Description:</b> <%= invoice.description || '-' %></div>
+        <div><b>Provider:</b> <%= invoice.provider ? invoice.provider.name + ' ('+invoice.provider.type+')' : '-' %></div>
+        <div><b>API Key:</b> <%= invoice.apiKey ? invoice.apiKey.label : '-' %></div>
+        <div><b>Callback URL:</b> <span class="text-slate-500 break-all"><%= invoice.callbackUrl || '-' %></span></div>
+        <div><b>Dibuat:</b> <%= new Date(invoice.createdAt).toLocaleString('id-ID') %></div>
+        <div><b>Kadaluarsa:</b> <%= new Date(invoice.expiredAt).toLocaleString('id-ID') %></div>
+        <% if (invoice.paidAt) { %>
+          <div><b>Dibayar:</b> <%= new Date(invoice.paidAt).toLocaleString('id-ID') %></div>
+        <% } %>
+      </div>
+      <div class="bg-white rounded-lg shadow-sm p-4">
+        <div class="font-semibold mb-2">QRIS String</div>
+        <textarea readonly class="w-full text-xs border rounded p-2 h-32"><%= invoice.qrisDynamic %></textarea>
+      </div>
+    </div>
+
+    <div class="bg-white rounded-lg shadow-sm">
+      <div class="px-4 py-3 border-b font-semibold">Webhook Logs</div>
+      <table class="w-full text-sm">
+        <thead class="bg-slate-50 text-slate-500">
+          <tr><th class="text-left px-4 py-2">Waktu</th><th class="text-left px-4 py-2">URL</th><th class="text-left px-4 py-2">Attempt</th><th class="text-left px-4 py-2">Status</th><th class="text-left px-4 py-2">Response</th></tr>
+        </thead>
+        <tbody>
+          <% invoice.webhookLogs.forEach(function(log){ %>
+            <tr class="border-t align-top">
+              <td class="px-4 py-2 text-slate-500 whitespace-nowrap"><%= new Date(log.createdAt).toLocaleString('id-ID') %></td>
+              <td class="px-4 py-2 break-all"><%= log.url %></td>
+              <td class="px-4 py-2"><%= log.attempt %></td>
+              <td class="px-4 py-2 <%= log.success ? 'text-green-600' : 'text-red-600' %>">
+                <%= log.success ? 'OK' : 'FAIL' %> <%= log.responseStatus || '' %>
+              </td>
+              <td class="px-4 py-2 text-xs text-slate-500 break-all"><%= (log.responseBody || '').slice(0, 200) %></td>
+            </tr>
+          <% }) %>
+          <% if (!invoice.webhookLogs.length) { %>
+            <tr><td class="px-4 py-6 text-center text-slate-400" colspan="5">Belum ada webhook log.</td></tr>
+          <% } %>
+        </tbody>
+      </table>
+    </div>
+  </main>
+</body>
+</html>

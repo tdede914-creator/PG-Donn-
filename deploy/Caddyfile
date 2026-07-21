@@ -1,0 +1,44 @@
+# =============================================================================
+# Caddyfile - alternatif nginx dengan HTTPS otomatis (Let's Encrypt bawaan)
+# =============================================================================
+# Cara pakai:
+#   1. Point A record domain kamu ke IP VPS.
+#   2. Edit "pg.domainkamu.com" jadi domain kamu.
+#   3. Kalau pakai docker-compose: uncomment service caddy di docker-compose.yml.
+#   4. Kalau standalone: `apt install caddy` lalu:
+#        sudo cp deploy/Caddyfile /etc/caddy/Caddyfile
+#        sudo systemctl reload caddy
+#   HTTPS akan otomatis diambil dari Let's Encrypt.
+# =============================================================================
+
+pg.domainkamu.com {
+    encode gzip
+
+    # Header keamanan
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "SAMEORIGIN"
+        Referrer-Policy "strict-origin-when-cross-origin"
+    }
+
+    # Rate limit API (butuh plugin caddy-ratelimit kalau mau)
+    # rate_limit {
+    #     zone api {
+    #         key    {remote_host}
+    #         events 20
+    #         window 1s
+    #     }
+    #     match path /api/*
+    # }
+
+    reverse_proxy 127.0.0.1:3000 {
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+    }
+
+    # Blokir dotfile
+    @dotfiles path /.env* /.git*
+    respond @dotfiles 404
+}

@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="id">
+<head><%- include('partials/head', { title: 'Bayar - ' + invoice.reference }) %></head>
+<body class="bg-slate-100 min-h-screen flex items-center justify-center p-4">
+  <div class="bg-white rounded-xl shadow-lg max-w-md w-full p-6 space-y-4">
+    <div class="text-center">
+      <div class="text-slate-500 text-sm">Total Tagihan</div>
+      <div class="text-3xl font-bold">Rp <%= invoice.totalAmount.toLocaleString('id-ID') %></div>
+      <div class="text-xs text-slate-500 mt-1">
+        Rp <%= invoice.amount.toLocaleString('id-ID') %> + kode unik Rp <%= invoice.uniqueCode %>
+      </div>
+    </div>
+
+    <div id="qr" class="flex justify-center">
+      <img src="<%= qrImage %>" alt="QRIS" class="w-72 h-72" />
+    </div>
+
+    <div class="text-center text-sm">
+      <div class="text-slate-500">Reference:</div>
+      <div class="font-mono"><%= invoice.reference %></div>
+    </div>
+
+    <div class="text-center">
+      <div id="status" class="px-3 py-2 rounded font-semibold
+        <%= invoice.status === 'PAID' ? 'bg-green-100 text-green-700' :
+            invoice.status === 'PENDING' ? 'bg-amber-100 text-amber-700' :
+            invoice.status === 'EXPIRED' ? 'bg-slate-200 text-slate-600' :
+            'bg-red-100 text-red-700' %>"><%= invoice.status %></div>
+      <div class="text-xs text-slate-500 mt-2">
+        Kadaluarsa: <span id="expiry"><%= new Date(invoice.expiredAt).toLocaleString('id-ID') %></span>
+      </div>
+    </div>
+
+    <div class="text-xs text-slate-500 border-t pt-3">
+      <p><b>Cara bayar:</b></p>
+      <ol class="list-decimal ml-5 space-y-1 mt-1">
+        <li>Buka aplikasi e-wallet / m-banking apa saja yang mendukung QRIS.</li>
+        <li>Scan QR di atas.</li>
+        <li>Pastikan nominal <b>tepat Rp <%= invoice.totalAmount.toLocaleString('id-ID') %></b>. Kode unik <b>tidak boleh diubah</b>.</li>
+        <li>Selesaikan pembayaran. Halaman ini akan otomatis update saat dana masuk.</li>
+      </ol>
+    </div>
+  </div>
+
+  <script>
+    const ref = <%- JSON.stringify(invoice.reference) %>;
+    let done = <%- JSON.stringify(invoice.status !== 'PENDING') %>;
+    async function poll() {
+      if (done) return;
+      try {
+        const r = await fetch('/pay/' + ref + '/status');
+        const data = await r.json();
+        if (data.status !== 'PENDING') {
+          document.getElementById('status').textContent = data.status;
+          document.getElementById('status').className =
+            'px-3 py-2 rounded font-semibold ' +
+            (data.status === 'PAID' ? 'bg-green-100 text-green-700' :
+             data.status === 'EXPIRED' ? 'bg-slate-200 text-slate-600' :
+             'bg-red-100 text-red-700');
+          done = true;
+        }
+      } catch (e) { /* ignore */ }
+    }
+    setInterval(poll, 3000);
+  </script>
+</body>
+</html>
