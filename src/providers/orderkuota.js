@@ -39,8 +39,8 @@ const GET_ENDPOINT = `${API_BASE}/get`;          // mutasi + saldo
 // Kalau OK naik versi lagi, user bisa override lewat credentials JSON:
 //   { "appVersionName": "26.09.14", "appVersionCode": "260914" }
 // Format: YY.MM.DD / YYMMDD (year 2-digit, month, day).
-const APP_VERSION_NAME = '26.07.14';
-const APP_VERSION_CODE = '260714';
+const APP_VERSION_NAME = '26.06.27';
+const APP_VERSION_CODE = '260627';
 const PHONE_MODEL = 'SM-G960N';
 
 // Debug: simpan info fetch terakhir supaya bisa di-inspect via Poll Now.

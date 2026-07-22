@@ -174,8 +174,8 @@
     function enrichCredentialsWithVersion(credsJsonString) {
       try {
         const obj = JSON.parse(credsJsonString);
-        if (!obj.appVersionName) obj.appVersionName = "26.07.14";
-        if (!obj.appVersionCode) obj.appVersionCode = "260714";
+        if (!obj.appVersionName) obj.appVersionName = "26.06.27";
+        if (!obj.appVersionCode) obj.appVersionCode = "260627";
         return JSON.stringify(obj, null, 2);
       } catch (_) { return credsJsonString; }
     }
