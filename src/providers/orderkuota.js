@@ -219,7 +219,14 @@ async function fetchMutations(provider) {
       `Provider ${provider.name}: belum login OrderKuota. Buka menu Providers → Login OrderKuota (OTP).`,
     );
   }
-  const authUsername = creds.authUsername || String(token).split(':')[0];
+  // auth_username HARUS username STRING (mis. "xxdonn" / "08xxx"),
+  // BUKAN user_id numeric. Kalau salah kirim -> OK balas "User tidak ditemukan".
+  const authUsername = creds.authUsername || creds.username;
+  if (!authUsername) {
+    throw new Error(
+      `Provider ${provider.name}: credentials tidak punya "authUsername" atau "username". Login ulang lewat menu Providers → OTP.`,
+    );
+  }
   const appRegId = creds.appRegId || DEFAULT_APP_REG_ID;
   const phoneUuid = creds.phoneUuid || DEFAULT_PHONE_UUID;
 

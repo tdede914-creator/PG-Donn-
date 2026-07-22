@@ -186,10 +186,13 @@ router.post('/providers/orderkuota/verify-otp', async (req, res) => {
       appRegId: otpData.appRegId,
     });
 
+    // auth_username harus username STRING (bukan user_id numeric).
+    // OK response kembalikan username field yang bener.
     const credentialsJson = {
       username: otpData.username,
       authToken: result.token,
-      authUsername: result.userId,
+      authUsername: result.username || otpData.username, // username string (mis. "xxdonn")
+      userId: result.userId,                              // simpan user_id juga (buat referensi)
       appRegId: otpData.appRegId,
     };
 
