@@ -13,12 +13,14 @@
  */
 
 const orderkuota = require('./orderkuota');
+const orderkuotaBalance = require('./orderkuota_balance');
 const danaBisnis = require('./danabisnis');
 const okeconnect = require('./okeconnect');
 const okeconnectH2h = require('./okeconnect_h2h');
 
 const registry = {
   orderkuota,
+  orderkuota_balance: orderkuotaBalance,
   dana_bisnis: danaBisnis,
   okeconnect,
   okeconnect_h2h: okeconnectH2h,

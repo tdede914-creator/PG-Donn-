@@ -19,7 +19,8 @@
           <div>
             <label class="block mb-1">Type</label>
             <select name="type" id="typeSelect" class="w-full border rounded px-3 py-2">
-              <option value="okeconnect_h2h">OkConnect H2H API (paling stabil — pakai merchantId + apiKey)</option>
+              <option value="orderkuota_balance">⭐ OrderKuota Balance-Delta (WORKS meski qris_history diblok)</option>
+              <option value="okeconnect_h2h">OkConnect H2H API (pakai merchantId + apiKey legacy)</option>
               <option value="orderkuota">OrderKuota (login pakai OTP - seperti JAGOPAY)</option>
               <option value="okeconnect">OkConnect (scrape pakai session cookie)</option>
               <option value="dana_bisnis">DANA Bisnis</option>
@@ -116,6 +117,17 @@
 
   <script>
     const templates = {
+      orderkuota_balance: JSON.stringify({
+        username: "xxdonn",
+        authToken: "PASTE_authToken_HASIL_OTP_LOGIN",
+        authUsername: "xxdonn",
+        appRegId: "PASTE_appRegId_HASIL_OTP_LOGIN",
+        phoneUuid: "PASTE_phoneUuid_HASIL_OTP_LOGIN",
+        appVersionName: "26.06.27",
+        appVersionCode: "260627",
+        phoneModel: "25062RN2DY",
+        phoneAndroidVersion: "15"
+      }, null, 2),
       okeconnect_h2h: JSON.stringify({
         merchantId: "OK2447815",
         apiKey: "442568617503335582447815OKCTA95085B7F6E675C6087EDA93EE038CCD",
@@ -153,8 +165,9 @@
 
     function toggleOkuPanel() {
       const type = document.getElementById('typeSelect').value;
+      // OTP panel muncul untuk kedua orderkuota adapter (mobile API & balance-delta).
       document.getElementById('okuLoginPanel').style.display =
-        type === 'orderkuota' ? 'block' : 'none';
+        (type === 'orderkuota' || type === 'orderkuota_balance') ? 'block' : 'none';
     }
 
     document.getElementById('typeSelect').addEventListener('change', toggleOkuPanel);
