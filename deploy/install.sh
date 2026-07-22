@@ -46,8 +46,18 @@ apt-get install -y curl ca-certificates gnupg build-essential git openssl ufw
 # -----------------------------------------------------------------------------
 # 2) Node.js 20 LTS via NodeSource
 # -----------------------------------------------------------------------------
-if ! command -v node >/dev/null 2>&1 || [[ "$(node -v | cut -d. -f1 | tr -d 'v')" -lt 18 ]]; then
-  log "Install Node.js 20 LTS..."
+# Butuh Node.js >= 20 (dependency `undici` yang dipakai axios butuh global
+# `File` API yang cuma ada di Node 20+). Node 18 akan crash dengan
+# `ReferenceError: File is not defined`.
+NEED_NODE_MAJOR=20
+CURRENT_NODE_MAJOR=0
+if command -v node >/dev/null 2>&1; then
+  CURRENT_NODE_MAJOR="$(node -v | sed 's/^v//' | cut -d. -f1)"
+fi
+if [[ "$CURRENT_NODE_MAJOR" -lt "$NEED_NODE_MAJOR" ]]; then
+  log "Install Node.js 20 LTS (current: v${CURRENT_NODE_MAJOR:-none}, need >=v$NEED_NODE_MAJOR)..."
+  # Kalau ada Node lama, hapus dulu supaya NodeSource clean.
+  apt-get remove -y nodejs npm libnode-dev 2>/dev/null || true
   curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
   apt-get install -y nodejs
 else
