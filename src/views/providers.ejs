@@ -97,8 +97,9 @@
                 </div>
                 <span class="ml-auto px-2 py-0.5 text-xs rounded <%= p.isActive ? 'bg-green-100 text-green-700' : 'bg-slate-200 text-slate-600' %>"><%= p.isActive ? 'AKTIF' : 'NONAKTIF' %></span>
               </div>
-              <div class="mt-2 flex gap-2 items-center">
+              <div class="mt-2 flex gap-2 items-center flex-wrap">
                 <button onclick="testProvider(<%= p.id %>)" class="text-xs text-amber-600 hover:text-amber-800">🔌 Test</button>
+                <button onclick="pollNow(<%= p.id %>)" class="text-xs text-blue-600 hover:text-blue-800">🔄 Poll Now (debug)</button>
                 <form method="POST" action="/providers/<%= p.id %>/toggle" class="inline"><button class="text-xs text-slate-600 hover:text-slate-900">Toggle</button></form>
                 <form method="POST" action="/providers/<%= p.id %>/delete" class="inline" onsubmit="return confirm('Hapus provider ini?')"><button class="text-xs text-red-600 hover:text-red-800">Hapus</button></form>
               </div>
@@ -256,6 +257,32 @@
       try {
         const r = await fetch('/providers/' + id + '/test', { method: 'POST' });
         renderResult(elId, await r.json());
+      } catch (e) {
+        renderResult(elId, { ok: false, message: e.message });
+      }
+    }
+
+    async function pollNow(id) {
+      const elId = 'test-' + id;
+      document.getElementById(elId).innerHTML =
+        '<div class="text-slate-500">Polling...</div>';
+      try {
+        const r = await fetch('/providers/' + id + '/poll-now', { method: 'POST' });
+        const data = await r.json();
+        if (!data.ok) {
+          renderResult(elId, data);
+          return;
+        }
+        const el = document.getElementById(elId);
+        el.innerHTML =
+          '<div class="bg-blue-100 text-blue-800 px-2 py-1 rounded">' +
+          '🔄 ' + data.message + '</div>' +
+          '<div class="mt-1 font-semibold text-xs">Sample mutasi terbaru (dari OK):</div>' +
+          '<pre class="bg-slate-50 p-2 rounded text-[10px] overflow-auto">' +
+          JSON.stringify(data.sampleMutations, null, 2) + '</pre>' +
+          '<div class="mt-1 font-semibold text-xs">Invoice PENDING yang menunggu:</div>' +
+          '<pre class="bg-slate-50 p-2 rounded text-[10px] overflow-auto">' +
+          JSON.stringify(data.pendingInvoices, null, 2) + '</pre>';
       } catch (e) {
         renderResult(elId, { ok: false, message: e.message });
       }

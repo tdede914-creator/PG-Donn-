@@ -60,10 +60,17 @@ async function ingestMutations(providerId, mutations) {
         },
       });
       matched += 1;
+      console.log(
+        `[matcher] MATCH! mutation=${m.externalId} amount=${m.amount} → invoice=${candidate.reference}`,
+      );
       // Fire webhook (non-blocking; error di-log).
       webhookService.sendForInvoice(candidate.id).catch((e) => {
         console.error('[webhook] error', e.message);
       });
+    } else {
+      console.log(
+        `[matcher] no invoice match for mutation amount=${m.amount} (provider=${providerId})`,
+      );
     }
   }
 

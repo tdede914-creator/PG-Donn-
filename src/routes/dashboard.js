@@ -126,6 +126,48 @@ router.post('/providers/:id/test', async (req, res) => {
   }
 });
 
+// Trigger POLLER manual + kembalikan raw response (debug).
+// Berguna untuk melihat: apa yang OK balikin? Apakah normalize() bisa parse?
+router.post('/providers/:id/poll-now', async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const provider = await prisma.provider.findUnique({ where: { id } });
+  if (!provider) return res.status(404).json({ ok: false, message: 'Provider tidak ditemukan' });
+  try {
+    const { getAdapter } = require('../providers');
+    const adapter = getAdapter(provider.type);
+    const mutations = await adapter.fetchMutations(provider);
+
+    const matcher = require('../services/matcher');
+    const { saved, matched } = await matcher.ingestMutations(provider.id, mutations);
+
+    const prisma2 = require('../db');
+    const pending = await prisma2.invoice.findMany({
+      where: { providerId: provider.id, status: 'PENDING' },
+      select: { reference: true, totalAmount: true, amount: true, uniqueCode: true, createdAt: true, expiredAt: true },
+      orderBy: { createdAt: 'desc' },
+      take: 5,
+    });
+
+    res.json({
+      ok: true,
+      message: `Poll selesai. Fetched=${mutations.length}, Saved=${saved}, Matched=${matched}`,
+      fetched: mutations.length,
+      saved,
+      matched,
+      sampleMutations: mutations.slice(0, 5).map((m) => ({
+        externalId: m.externalId,
+        amount: m.amount,
+        occurredAt: m.occurredAt,
+        keterangan: m.raw?.keterangan || '',
+        brand: m.raw?.brand?.name || '',
+      })),
+      pendingInvoices: pending,
+    });
+  } catch (e) {
+    res.json({ ok: false, message: e.message || String(e) });
+  }
+});
+
 // Test credentials SEBELUM disimpan (dari form add provider).
 router.post('/providers/test-preview', async (req, res) => {
   const { type, qrisStatic, credentials } = req.body;

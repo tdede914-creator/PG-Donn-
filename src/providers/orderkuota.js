@@ -82,8 +82,10 @@ async function callOkApi(endpoint, form, actionLabel) {
 
   const contentType = String(res.headers?.['content-type'] || '');
   const rawBody = String(res.data ?? '');
+  // Log agak panjang khusus untuk fetch mutasi supaya kelihatan seluruh struktur data
+  const logLimit = actionLabel.includes('mutasi') ? 3000 : 500;
   console.log(
-    `[OrderKuota ${actionLabel}] status=${res.status} ct="${contentType}" body="${rawBody.slice(0, 400)}"`,
+    `[OrderKuota ${actionLabel}] status=${res.status} ct="${contentType}" body_len=${rawBody.length} body_preview="${rawBody.slice(0, logLimit)}"`,
   );
 
   if (res.status === 469) {
@@ -261,23 +263,72 @@ async function fetchMutations(provider) {
     );
   }
 
-  return normalize(data);
+  const normalized = normalize(data);
+  console.log(
+    `[OrderKuota fetch mutasi] normalized=${normalized.length} items` +
+      (normalized[0]
+        ? `, first={externalId:${normalized[0].externalId}, amount:${normalized[0].amount}}`
+        : ''),
+  );
+  return normalized;
+}
+
+/**
+ * Cari array mutasi di response OK yang bentuknya bisa bervariasi.
+ * Kita coba semua key candidate + walk recursively kalau perlu.
+ */
+function findMutasiArray(data) {
+  // Kandidat path yang umum ditemui di berbagai wrapper OK.
+  const candidates = [
+    'qris_history.results',
+    'results.qris_history.results',
+    'data.qris_history.results',
+    'qris_history',
+    'results.qris_history',
+    'data.qris_history',
+    'data.mutasi',
+    'mutasi',
+    'results.mutasi',
+    'results',
+  ];
+  for (const path of candidates) {
+    const val = path.split('.').reduce((acc, k) => (acc == null ? acc : acc[k]), data);
+    if (Array.isArray(val) && val.length >= 0) {
+      // Prefer array yang isinya "look like" mutasi (punya kredit/keterangan/tanggal)
+      if (val.length === 0) return val;
+      const sample = val[0];
+      if (sample && (sample.kredit !== undefined || sample.keterangan !== undefined || sample.tanggal !== undefined || sample.amount !== undefined)) {
+        return val;
+      }
+    }
+  }
+  // Fallback: walk data cari array-of-objects yang punya field kredit/keterangan.
+  function walk(obj, depth = 0) {
+    if (depth > 6 || obj == null) return null;
+    if (Array.isArray(obj)) {
+      if (obj.length > 0 && typeof obj[0] === 'object' &&
+          (obj[0].kredit !== undefined || obj[0].keterangan !== undefined || obj[0].tanggal !== undefined)) {
+        return obj;
+      }
+      return null;
+    }
+    if (typeof obj === 'object') {
+      for (const key of Object.keys(obj)) {
+        const found = walk(obj[key], depth + 1);
+        if (found) return found;
+      }
+    }
+    return null;
+  }
+  return walk(data) || [];
 }
 
 /**
  * Normalisasi response OrderKuota.
- * Struktur (dari komunitas + PHP fork):
- *   data.qris_history.results[] atau data.results.qris_history.results[]
- *   Item: { id, kredit, saldo_akhir, keterangan, tanggal, status, brand:{name,logo} }
+ * Struktur item: { id, kredit, saldo_akhir, keterangan, tanggal, status, brand:{name,logo} }
  */
 function normalize(data) {
-  const items =
-    data?.qris_history?.results ||
-    data?.results?.qris_history?.results ||
-    data?.data?.qris_history?.results ||
-    data?.data?.mutasi ||
-    data?.mutasi ||
-    [];
+  const items = findMutasiArray(data);
   if (!Array.isArray(items)) return [];
 
   return items
