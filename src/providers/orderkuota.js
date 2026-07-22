@@ -39,9 +39,17 @@ const GET_ENDPOINT = `${API_BASE}/get`;          // mutasi + saldo
 // Kalau OK naik versi lagi, user bisa override lewat credentials JSON:
 //   { "appVersionName": "26.09.14", "appVersionCode": "260914" }
 // Format: YY.MM.DD / YYMMDD (year 2-digit, month, day).
-const APP_VERSION_NAME = '26.06.27';
-const APP_VERSION_CODE = '260627';
-const PHONE_MODEL = 'SM-G960N';
+// Bump versi jauh di atas 26.06.27 (yang di Play Store user) karena OK server
+// tampaknya cek minimum version untuk qris_history lebih strict — bisa jadi
+// versi belum rollout ke device user tapi sudah aktif di server. Kalau
+// 26.12.31 masih ditolak, user bisa tune manual di dashboard.
+const APP_VERSION_NAME = '26.12.31';
+const APP_VERSION_CODE = '261231';
+// Bump juga device profile ke modern (Galaxy S24 + Android 14) karena
+// SM-G960N (Galaxy S9 2018) + Android 9 kelihatan sangat "outdated" dan
+// mungkin di-flag OK anti-scraping.
+const PHONE_MODEL = 'SM-S928B';
+const PHONE_ANDROID_VERSION = '14';
 
 // Debug: simpan info fetch terakhir supaya bisa di-inspect via Poll Now.
 let _lastFetchDebug = null;
@@ -262,10 +270,13 @@ async function fetchMutations(provider) {
   const appVersionName = creds.appVersionName || APP_VERSION_NAME;
   const appVersionCode = creds.appVersionCode || APP_VERSION_CODE;
 
+  const phoneAndroidVersion = creds.phoneAndroidVersion || PHONE_ANDROID_VERSION;
+  const phoneModel = creds.phoneModel || PHONE_MODEL;
+
   const form = new URLSearchParams();
   form.append('request_time', String(Math.floor(Date.now() / 1000)));
   form.append('app_reg_id', appRegId);
-  form.append('phone_android_version', '9');
+  form.append('phone_android_version', phoneAndroidVersion);
   form.append('app_version_code', appVersionCode);
   form.append('phone_uuid', phoneUuid);
   form.append('auth_username', authUsername);
@@ -276,7 +287,7 @@ async function fetchMutations(provider) {
   form.append('auth_token', token);
   form.append('app_version_name', appVersionName);
   form.append('ui_mode', 'light');
-  form.append('phone_model', PHONE_MODEL);
+  form.append('phone_model', phoneModel);
 
   const { status, data } = await callOkApi(GET_ENDPOINT, form, 'fetch mutasi');
 
