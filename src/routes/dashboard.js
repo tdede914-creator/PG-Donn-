@@ -150,6 +150,68 @@ router.post('/providers/test-preview', async (req, res) => {
   }
 });
 
+// ----- OrderKuota OTP-based Login (seperti JAGOPAY) -----
+router.post('/providers/orderkuota/request-otp', async (req, res) => {
+  try {
+    const { username, password } = req.body;
+    const orderkuota = require('../providers/orderkuota');
+    const result = await orderkuota.requestOtp({ username, password });
+    // Simpan info temporary di session buat step verify
+    req.session.okuOtp = {
+      username,
+      password,
+      appRegId: result.appRegId,
+      at: Date.now(),
+    };
+    res.json({ ok: true, message: result.message });
+  } catch (e) {
+    res.json({ ok: false, message: e.message || String(e) });
+  }
+});
+
+router.post('/providers/orderkuota/verify-otp', async (req, res) => {
+  try {
+    const otpData = req.session.okuOtp;
+    if (!otpData || Date.now() - otpData.at > 10 * 60 * 1000) {
+      return res.json({
+        ok: false,
+        message: 'Sesi OTP expired (>10 menit). Klik "Kirim OTP" lagi.',
+      });
+    }
+    const { otp } = req.body;
+    const orderkuota = require('../providers/orderkuota');
+    const result = await orderkuota.verifyOtp({
+      username: otpData.username,
+      password: otpData.password,
+      otp: String(otp || '').trim(),
+      appRegId: otpData.appRegId,
+    });
+
+    const credentialsJson = {
+      username: otpData.username,
+      authToken: result.token,
+      authUsername: result.userId,
+      appRegId: otpData.appRegId,
+    };
+
+    delete req.session.okuOtp;
+
+    res.json({
+      ok: true,
+      message: `Login sukses sebagai ${result.name || result.username} (saldo: Rp ${Number(result.balance || 0).toLocaleString('id-ID')}). Credentials otomatis diisi — klik Simpan.`,
+      credentials: JSON.stringify(credentialsJson, null, 2),
+      info: {
+        userId: result.userId,
+        name: result.name,
+        balance: result.balance,
+        qrisName: result.qrisName,
+      },
+    });
+  } catch (e) {
+    res.json({ ok: false, message: e.message || String(e) });
+  }
+});
+
 // ----- API Keys -----
 router.get('/apikeys', async (req, res) => {
   const keys = await prisma.apiKey.findMany({ orderBy: { createdAt: 'desc' } });

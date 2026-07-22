@@ -14,16 +14,56 @@
         <form id="addForm" method="POST" action="/providers" class="space-y-3 text-sm">
           <div>
             <label class="block mb-1">Nama</label>
-            <input name="name" class="w-full border rounded px-3 py-2" placeholder="mis. OK utama" required />
+            <input name="name" class="w-full border rounded px-3 py-2" placeholder="mis. OK Utama" required />
           </div>
           <div>
             <label class="block mb-1">Type</label>
             <select name="type" id="typeSelect" class="w-full border rounded px-3 py-2">
-              <option value="okeconnect">OkConnect (scrape mutasi QRIS pakai cookie session)</option>
-              <option value="orderkuota">OrderKuota</option>
+              <option value="orderkuota">OrderKuota (login pakai OTP - seperti JAGOPAY)</option>
+              <option value="okeconnect">OkConnect (scrape pakai session cookie)</option>
               <option value="dana_bisnis">DANA Bisnis</option>
             </select>
           </div>
+
+          <!-- ============= OrderKuota OTP Login Panel ============= -->
+          <div id="okuLoginPanel" class="border-2 border-blue-200 bg-blue-50 rounded p-3 space-y-2">
+            <div class="font-semibold text-blue-900 text-sm">🔐 Login OrderKuota (OTP)</div>
+            <p class="text-xs text-slate-600">
+              Isi username &amp; password OrderKuota kamu. OTP akan dikirim ke email
+              yang terdaftar di OrderKuota. Setelah verify OTP, credentials JSON di
+              bawah akan terisi otomatis.
+            </p>
+            <div>
+              <label class="block mb-1 text-xs">Username / No HP OrderKuota</label>
+              <input id="okuUsername" placeholder="08xxxx"
+                     class="w-full border rounded px-2 py-1 text-sm" autocomplete="off" />
+            </div>
+            <div>
+              <label class="block mb-1 text-xs">Password OrderKuota</label>
+              <input id="okuPassword" type="password" placeholder="password"
+                     class="w-full border rounded px-2 py-1 text-sm" autocomplete="off" />
+            </div>
+            <button type="button" onclick="requestOtp()"
+                    class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded text-sm">
+              📧 Kirim OTP ke Email
+            </button>
+
+            <div id="okuOtpPanel" style="display:none" class="mt-2 pt-2 border-t border-blue-200">
+              <label class="block mb-1 text-xs">Kode OTP (6 digit dari email)</label>
+              <div class="flex gap-2">
+                <input id="okuOtp" placeholder="123456" maxlength="6"
+                       class="flex-1 border rounded px-2 py-1 text-sm font-mono" />
+                <button type="button" onclick="verifyOtp()"
+                        class="bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded text-sm">
+                  ✅ Verify OTP
+                </button>
+              </div>
+            </div>
+
+            <div id="okuLoginResult" class="text-xs mt-1"></div>
+          </div>
+          <!-- ============= end OrderKuota OTP Panel ============= -->
+
           <div>
             <label class="block mb-1">Static QRIS String</label>
             <textarea name="qrisStatic" class="w-full border rounded px-3 py-2 h-24 font-mono text-xs" placeholder="000201010211026..." required></textarea>
@@ -72,17 +112,17 @@
 
   <script>
     const templates = {
+      orderkuota: JSON.stringify({
+        username: "AUTO_DIISI_LEWAT_LOGIN_OTP_DI_ATAS",
+        authToken: "AUTO_DIISI_LEWAT_LOGIN_OTP_DI_ATAS",
+        authUsername: "AUTO_DIISI_LEWAT_LOGIN_OTP_DI_ATAS",
+        appRegId: "AUTO_DIISI_LEWAT_LOGIN_OTP_DI_ATAS"
+      }, null, 2),
       okeconnect: JSON.stringify({
         sessionCookie: "PASTE_VALUE_ci_session_DARI_LAPTOP_F12",
         cookieName: "ci_session",
         mutasiUrl: "https://okeconnect.com/mutasi/index",
         maxPages: 1
-      }, null, 2),
-      orderkuota: JSON.stringify({
-        authToken: "PASTE_TOKEN_DARI_F12_NETWORK_TAB",
-        authUsername: "USERNAME_ORDERKUOTA_KAMU",
-        endpoint: "https://app.orderkuota.com/api/v2/get/qris_history",
-        method: "POST"
       }, null, 2),
       dana_bisnis: JSON.stringify({
         endpoint: "https://api-partner.dana.id/v1/merchant/transaction/history",
@@ -91,10 +131,7 @@
           "Authorization": "Bearer TOKEN_DARI_F12",
           "X-Signature": "SIGNATURE_DARI_F12"
         },
-        body: {
-          startDate: "AUTO_TODAY",
-          endDate: "AUTO_TODAY"
-        },
+        body: { startDate: "AUTO_TODAY", endDate: "AUTO_TODAY" },
         resultsPath: "data.transactions"
       }, null, 2),
     };
@@ -104,11 +141,20 @@
       document.getElementById('credentialsField').value = templates[type] || '{}';
     }
 
+    function toggleOkuPanel() {
+      const type = document.getElementById('typeSelect').value;
+      document.getElementById('okuLoginPanel').style.display =
+        type === 'orderkuota' ? 'block' : 'none';
+    }
+
+    document.getElementById('typeSelect').addEventListener('change', toggleOkuPanel);
+    toggleOkuPanel();  // init
+
     function renderResult(elId, result) {
       const el = document.getElementById(elId);
       if (result.ok) {
         el.innerHTML = '<div class="bg-green-100 text-green-700 px-2 py-1 rounded">' +
-          '✓ ' + result.message + '</div>' +
+          '✓ ' + (result.message || '') + '</div>' +
           (result.sample && result.sample.length ?
             '<pre class="mt-1 bg-slate-50 p-2 rounded text-[10px] overflow-auto">' +
             JSON.stringify(result.sample, null, 2) + '</pre>' : '');
@@ -118,6 +164,69 @@
       }
     }
 
+    // --- OrderKuota OTP flow ---
+    async function requestOtp() {
+      const u = document.getElementById('okuUsername').value.trim();
+      const p = document.getElementById('okuPassword').value;
+      if (!u || !p) {
+        document.getElementById('okuLoginResult').innerHTML =
+          '<div class="bg-amber-100 text-amber-800 px-2 py-1 rounded">⚠ Isi username dan password dulu</div>';
+        return;
+      }
+      document.getElementById('okuLoginResult').innerHTML =
+        '<div class="text-slate-500">Mengirim OTP ke server OrderKuota...</div>';
+      try {
+        const r = await fetch('/providers/orderkuota/request-otp', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({ username: u, password: p }),
+        });
+        const data = await r.json();
+        if (data.ok) {
+          document.getElementById('okuLoginResult').innerHTML =
+            '<div class="bg-green-100 text-green-700 px-2 py-1 rounded">✓ ' + data.message + '</div>' +
+            '<div class="text-xs text-slate-600 mt-1">Cek email OrderKuota kamu, terus masukkan kode OTP di bawah.</div>';
+          document.getElementById('okuOtpPanel').style.display = 'block';
+          document.getElementById('okuOtp').focus();
+        } else {
+          document.getElementById('okuLoginResult').innerHTML =
+            '<div class="bg-red-100 text-red-700 px-2 py-1 rounded whitespace-pre-wrap">✗ ' + data.message + '</div>';
+        }
+      } catch (e) {
+        document.getElementById('okuLoginResult').innerHTML =
+          '<div class="bg-red-100 text-red-700 px-2 py-1 rounded">✗ ' + e.message + '</div>';
+      }
+    }
+
+    async function verifyOtp() {
+      const otp = document.getElementById('okuOtp').value.trim();
+      if (!otp) return;
+      document.getElementById('okuLoginResult').innerHTML =
+        '<div class="text-slate-500">Verifikasi OTP...</div>';
+      try {
+        const r = await fetch('/providers/orderkuota/verify-otp', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({ otp: otp }),
+        });
+        const data = await r.json();
+        if (data.ok) {
+          document.getElementById('okuLoginResult').innerHTML =
+            '<div class="bg-green-100 text-green-700 px-2 py-1 rounded">✓ ' + data.message + '</div>';
+          document.getElementById('credentialsField').value = data.credentials;
+          // Scroll ke tombol Simpan
+          document.querySelector('button[type="submit"], form#addForm button.bg-slate-900')?.scrollIntoView({ behavior: 'smooth' });
+        } else {
+          document.getElementById('okuLoginResult').innerHTML =
+            '<div class="bg-red-100 text-red-700 px-2 py-1 rounded whitespace-pre-wrap">✗ ' + data.message + '</div>';
+        }
+      } catch (e) {
+        document.getElementById('okuLoginResult').innerHTML =
+          '<div class="bg-red-100 text-red-700 px-2 py-1 rounded">✗ ' + e.message + '</div>';
+      }
+    }
+
+    // --- Test connection (existing) ---
     async function testPreview() {
       const form = document.getElementById('addForm');
       const fd = new FormData(form);
@@ -133,8 +242,7 @@
             credentials: fd.get('credentials') || '{}',
           }),
         });
-        const data = await r.json();
-        renderResult('testResult', data);
+        renderResult('testResult', await r.json());
       } catch (e) {
         renderResult('testResult', { ok: false, message: e.message });
       }
@@ -146,8 +254,7 @@
         '<div class="text-slate-500">Testing...</div>';
       try {
         const r = await fetch('/providers/' + id + '/test', { method: 'POST' });
-        const data = await r.json();
-        renderResult(elId, data);
+        renderResult(elId, await r.json());
       } catch (e) {
         renderResult(elId, { ok: false, message: e.message });
       }
