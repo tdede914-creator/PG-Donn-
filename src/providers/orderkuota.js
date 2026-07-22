@@ -34,9 +34,13 @@ const API_BASE = 'https://app.orderkuota.com/api/v2';
 const LOGIN_ENDPOINT = `${API_BASE}/login`;      // step 1 & 2 pakai endpoint sama
 const GET_ENDPOINT = `${API_BASE}/get`;          // mutasi + saldo
 
-// Konstanta app dari kode PHP asli (bisa outdated kalau OK update).
-const APP_VERSION_NAME = '25.08.11';
-const APP_VERSION_CODE = '250811';
+// Default versi app OK. OK server nolak akses qris_history kalau versi
+// terlalu lama ("Silakan perbarui aplikasi Order Kuota terlebih dahulu").
+// Kalau OK naik versi lagi, user bisa override lewat credentials JSON:
+//   { "appVersionName": "26.09.14", "appVersionCode": "260914" }
+// Format: YY.MM.DD / YYMMDD (year 2-digit, month, day).
+const APP_VERSION_NAME = '26.07.14';
+const APP_VERSION_CODE = '260714';
 const PHONE_MODEL = 'SM-G960N';
 
 // Debug: simpan info fetch terakhir supaya bisa di-inspect via Poll Now.
@@ -253,12 +257,16 @@ async function fetchMutations(provider) {
   }
   const appRegId = creds.appRegId || DEFAULT_APP_REG_ID;
   const phoneUuid = creds.phoneUuid || DEFAULT_PHONE_UUID;
+  // Version bisa di-override di credentials JSON supaya user bisa update
+  // waktu OK naikin versi minimum, tanpa perlu deploy ulang.
+  const appVersionName = creds.appVersionName || APP_VERSION_NAME;
+  const appVersionCode = creds.appVersionCode || APP_VERSION_CODE;
 
   const form = new URLSearchParams();
   form.append('request_time', String(Math.floor(Date.now() / 1000)));
   form.append('app_reg_id', appRegId);
   form.append('phone_android_version', '9');
-  form.append('app_version_code', APP_VERSION_CODE);
+  form.append('app_version_code', appVersionCode);
   form.append('phone_uuid', phoneUuid);
   form.append('auth_username', authUsername);
   form.append('requests[0]', 'account');
@@ -266,7 +274,7 @@ async function fetchMutations(provider) {
   form.append('requests[qris_history][jumlah]', '30');
   form.append('requests[qris_history][selected]', 'kredit'); // hanya masuk
   form.append('auth_token', token);
-  form.append('app_version_name', APP_VERSION_NAME);
+  form.append('app_version_name', appVersionName);
   form.append('ui_mode', 'light');
   form.append('phone_model', PHONE_MODEL);
 
@@ -282,6 +290,18 @@ async function fetchMutations(provider) {
     }
     throw new Error(
       `OrderKuota error (HTTP ${status}): ${data.message || JSON.stringify(data).slice(0, 300)}`,
+    );
+  }
+
+  // Deteksi khusus: OK nolak qris_history karena versi app ketinggalan.
+  const qh = data.qris_history;
+  if (qh && qh.success === false && /perbarui aplikasi|update.*version/i.test(String(qh.message || ''))) {
+    throw new Error(
+      `OrderKuota tolak fetch mutasi: "${qh.message}". ` +
+      `Versi app "${appVersionName}" (${appVersionCode}) sudah dianggap outdated. ` +
+      `Update credentials JSON di dashboard: tambahkan field "appVersionName" dan "appVersionCode" ` +
+      `dengan versi lebih baru. Contoh: {"appVersionName":"26.09.14","appVersionCode":"260914"}. ` +
+      `Cek versi terkini di Play Store OrderKuota, atau naikin bertahap sampai diterima OK.`,
     );
   }
 

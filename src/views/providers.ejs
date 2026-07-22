@@ -215,7 +215,7 @@
         if (data.ok) {
           document.getElementById('okuLoginResult').innerHTML =
             '<div class="bg-green-100 text-green-700 px-2 py-1 rounded">✓ ' + data.message + '</div>';
-          document.getElementById('credentialsField').value = data.credentials;
+          document.getElementById('credentialsField').value = enrichCredentialsWithVersion(data.credentials);
           // Scroll ke tombol Simpan
           document.querySelector('button[type="submit"], form#addForm button.bg-slate-900')?.scrollIntoView({ behavior: 'smooth' });
         } else {
