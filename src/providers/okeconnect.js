@@ -46,8 +46,12 @@ async function fetchMutations(provider) {
     );
   }
   const cookieName = creds.cookieName || 'ci_session';
-  const mutasiUrl = (creds.mutasiUrl || 'https://okeconnect.com/mutasi/index').replace(/\/$/, '');
+  const mutasiUrl = (creds.mutasiUrl || 'https://okeconnect.com/mutasi').replace(/\/$/, '');
   const maxPages = Math.max(1, Math.min(5, parseInt(creds.maxPages || 1, 10) || 1));
+  // Filter description: hanya baris yang mengandung pola ini yang dianggap
+  // pembayaran QRIS masuk. Default: "Pencairan QRIS".
+  const descFilter = creds.descFilter || 'Pencairan QRIS';
+  const descFilterRegex = new RegExp(descFilter, 'i');
 
   let cookieHeader = `${cookieName}=${sessionCookie}`;
   if (creds.extraCookies) cookieHeader += `; ${creds.extraCookies}`;
@@ -55,7 +59,8 @@ async function fetchMutations(provider) {
   const allMutations = [];
 
   for (let page = 1; page <= maxPages; page++) {
-    const url = `${mutasiUrl}/${page}`;
+    // OkConnect pakai CodeIgniter: /mutasi -> page 1; /mutasi/index/N -> page N.
+    const url = page === 1 ? mutasiUrl : `${mutasiUrl}/index/${page}`;
     let res;
     try {
       res = await axios.get(url, {
@@ -93,11 +98,9 @@ async function fetchMutations(provider) {
       );
     }
 
-    const pageMutations = parseMutasiHtml(html);
-    if (pageMutations.length === 0 && page === 1) {
-      // Tidak ada baris data → mungkin format berubah, kasih hint.
-      // Tapi jangan throw, karena bisa saja user memang belum ada transaksi.
-    }
+    const pageMutations = parseMutasiHtml(html)
+      // Hanya "Pencairan QRIS" (default) → skip entry pulsa/paket/fee.
+      .filter((m) => descFilterRegex.test(m.raw?.desc || ''));
     allMutations.push(...pageMutations);
   }
 
@@ -134,7 +137,11 @@ function parseMutasiHtml(html) {
       bestTable = tbl;
     }
   });
-  if (!bestTable) return [];
+
+  // Fallback: kalau nggak ada tabel, coba parsing card/div-based layout.
+  if (!bestTable) {
+    return parseMutasiCards($, html);
+  }
 
   // Deteksi index kolom dari header (fleksibel).
   const headerCells = $(bestTable).find('thead th, thead td').toArray().map((el) =>
@@ -198,6 +205,43 @@ function parseMutasiHtml(html) {
       });
     });
 
+  return rows;
+}
+
+/**
+ * Parser fallback: layout card/div (bukan table).
+ * OK terkini kadang render mutasi sebagai vertikal list card. Kita pakai regex
+ * di seluruh body text untuk cari pola: "dd/mm/yyyy hh:mm:ss ... +NOMINAL".
+ */
+function parseMutasiCards($, _html) {
+  const rows = [];
+  const text = $('body').text().replace(/\r/g, ' ');
+
+  const pattern =
+    /(\d{2}\/\d{2}\/\d{4}\s+\d{1,2}:\d{2}(?::\d{2})?)([\s\S]{5,400}?)([+\-])\s*([\d.,]+)/g;
+  let m;
+  while ((m = pattern.exec(text)) !== null) {
+    const dateStr = m[1];
+    const desc = normalize(m[2]);
+    const sign = m[3];
+    if (sign !== '+') continue;                     // hanya kredit / masuk
+    const amount = toInt(m[4]);
+    if (amount <= 0) continue;
+    // Filter noise: desc harus punya kata benda transaksi.
+    if (!/[a-zA-Z]{3,}/.test(desc)) continue;
+
+    const externalId =
+      (desc.match(/R#(\d+)/i)?.[1] && `R${desc.match(/R#(\d+)/i)[1]}`) ||
+      (desc.match(/\b(\d{7,})\b/)?.[1]) ||
+      `${dateStr}|${amount}`;
+
+    rows.push({
+      externalId,
+      amount,
+      occurredAt: parseIndoDate(dateStr),
+      raw: { date: dateStr, desc, status: 'success', cards: true },
+    });
+  }
   return rows;
 }
 
