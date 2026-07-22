@@ -166,6 +166,18 @@
       }
     }
 
+    // Setelah verify OTP sukses, tambah field appVersionName + appVersionCode
+    // ke credentials JSON. Ini biar user aware field ini ada, dan bisa update
+    // waktu OK naikin versi minimum lagi di masa depan.
+    function enrichCredentialsWithVersion(credsJsonString) {
+      try {
+        const obj = JSON.parse(credsJsonString);
+        if (!obj.appVersionName) obj.appVersionName = "26.07.14";
+        if (!obj.appVersionCode) obj.appVersionCode = "260714";
+        return JSON.stringify(obj, null, 2);
+      } catch (_) { return credsJsonString; }
+    }
+
     // --- OrderKuota OTP flow ---
     async function requestOtp() {
       const u = document.getElementById('okuUsername').value.trim();
