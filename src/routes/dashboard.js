@@ -169,6 +169,31 @@ router.post('/providers/:id/test', async (req, res) => {
   }
 });
 
+// URL Variant Explorer — coba 8 kombinasi endpoint/payload untuk OK
+// qris_history, kembalikan matrix hasil biar user (dan saya) bisa liat mana
+// yang lolos anti-scraping. Cuma untuk debug, bukan production polling.
+router.post('/providers/:id/explore-variants', async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const provider = await prisma.provider.findUnique({ where: { id } });
+  if (!provider) return res.status(404).json({ ok: false, message: 'Provider tidak ditemukan' });
+  try {
+    const explorer = require('../providers/orderkuota_explorer');
+    const results = await explorer.tryAllVariants(provider);
+    // Highlight variant yang paling promising
+    const successful = results.filter(r => r.mutasiCount > 0);
+    res.json({
+      ok: true,
+      message: successful.length > 0
+        ? `🎯 KETEMU! ${successful.length} variant return mutasi data.`
+        : `Semua ${results.length} variant tolak. Cek preview response masing-masing untuk pattern rejection.`,
+      variants: results,
+      successful,
+    });
+  } catch (e) {
+    res.json({ ok: false, message: e.message || String(e) });
+  }
+});
+
 // Trigger POLLER manual + kembalikan raw response (debug).
 // Berguna untuk melihat: apa yang OK balikin? Apakah normalize() bisa parse?
 router.post('/providers/:id/poll-now', async (req, res) => {
