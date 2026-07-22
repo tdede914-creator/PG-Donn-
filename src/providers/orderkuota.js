@@ -67,6 +67,56 @@ function friendlyError(err, action) {
 }
 
 // ---------------------------------------------------------------------------
+// Helper: HTTP call ke OrderKuota + parsing yang toleran (JSON / text / empty).
+// ---------------------------------------------------------------------------
+async function callOkApi(endpoint, form, actionLabel) {
+  let res;
+  try {
+    res = await axios.post(endpoint, form.toString(), {
+      headers: baseHeaders(),
+      timeout: 25000,
+      validateStatus: () => true,
+      // Keep raw response as string so kita bisa parse manual (handle non-JSON)
+      transformResponse: [(data) => data],
+    });
+  } catch (err) {
+    throw friendlyError(err, actionLabel);
+  }
+
+  const contentType = String(res.headers?.['content-type'] || '');
+  const rawBody = String(res.data ?? '');
+  // Debug log ke stdout — muncul di pm2 logs
+  console.log(
+    `[OrderKuota ${actionLabel}] endpoint=${endpoint} status=${res.status} ct="${contentType}" body="${rawBody.slice(0, 400)}"`,
+  );
+
+  if (res.status === 469) {
+    throw new Error(
+      `HTTP 469 dari OrderKuota — "Gunakan Jaringan Internet Lainnya". IP VPS masih diblokir. Solusi: pindah provider VPS Indonesia lain, atau pakai OkConnect adapter.`,
+    );
+  }
+
+  // Kosong / bukan JSON → error dengan detail
+  if (!rawBody.trim()) {
+    throw new Error(
+      `OrderKuota ${actionLabel}: response KOSONG (HTTP ${res.status}, content-type: ${contentType || 'none'}). Endpoint mungkin salah / diblokir silently.`,
+    );
+  }
+  let data;
+  try {
+    data = JSON.parse(rawBody);
+  } catch (e) {
+    // Response bukan JSON — biasanya HTML (blocking page, login page, dsb)
+    const preview = rawBody.slice(0, 300).replace(/\s+/g, ' ');
+    throw new Error(
+      `OrderKuota ${actionLabel}: response BUKAN JSON (HTTP ${res.status}, content-type: ${contentType}). Preview: ${preview}`,
+    );
+  }
+
+  return { status: res.status, data, rawBody, contentType };
+}
+
+// ---------------------------------------------------------------------------
 // STEP 1: Request OTP
 // ---------------------------------------------------------------------------
 async function requestOtp({ username, password, appRegId }) {
@@ -80,35 +130,21 @@ async function requestOtp({ username, password, appRegId }) {
   form.append('app_version_name', APP_VERSION_NAME);
   form.append('app_version_code', APP_VERSION_CODE);
 
-  let res;
-  try {
-    res = await axios.post(DEFAULT_LOGIN_ENDPOINT, form.toString(), {
-      headers: baseHeaders(),
-      timeout: 25000,
-      validateStatus: () => true,
-    });
-  } catch (err) {
-    throw friendlyError(err, 'request OTP');
-  }
+  const { status, data } = await callOkApi(DEFAULT_LOGIN_ENDPOINT, form, 'request OTP');
 
-  if (res.status === 469) {
-    throw new Error(
-      `HTTP 469: OrderKuota blokir IP VPS ini ("Gunakan Jaringan Internet Lainnya"). Solusi: pindah VPS ke Indonesia (Niagahoster/Biznet/IDCloudHost) atau pakai adapter OkConnect.`,
-    );
-  }
-
-  const data = res.data || {};
-  // Response OK sukses biasanya: { success: true, message: "OTP dikirim..." }
-  // Atau: { success: true, results: {...} }
   const success = data.success === true || data.status === true;
   if (!success) {
-    const msg = data.message || data.error || JSON.stringify(data).slice(0, 300);
-    throw new Error(`Login OrderKuota gagal: ${msg}`);
+    const msg =
+      data.message ||
+      data.error ||
+      data.errors ||
+      JSON.stringify(data).slice(0, 400);
+    throw new Error(`Login OrderKuota gagal (HTTP ${status}): ${msg}`);
   }
 
   return {
     success: true,
-    message: data.message || 'OTP dikirim via email OrderKuota kamu',
+    message: data.message || data.results?.message || 'OTP dikirim via email OrderKuota kamu',
     appRegId: regId,
   };
 }
@@ -128,32 +164,18 @@ async function verifyOtp({ username, password, otp, appRegId }) {
   form.append('app_version_name', APP_VERSION_NAME);
   form.append('app_version_code', APP_VERSION_CODE);
 
-  let res;
-  try {
-    res = await axios.post(DEFAULT_VERIFY_ENDPOINT, form.toString(), {
-      headers: baseHeaders(),
-      timeout: 25000,
-      validateStatus: () => true,
-    });
-  } catch (err) {
-    throw friendlyError(err, 'verify OTP');
-  }
+  const { status, data } = await callOkApi(DEFAULT_VERIFY_ENDPOINT, form, 'verify OTP');
 
-  if (res.status === 469) {
-    throw new Error('HTTP 469: OrderKuota blokir VPS ini pada verify OTP.');
-  }
-
-  const data = res.data || {};
   const success = data.success === true || data.status === true;
   if (!success) {
-    const msg = data.message || JSON.stringify(data).slice(0, 300);
-    throw new Error(`Verify OTP gagal: ${msg}`);
+    const msg = data.message || JSON.stringify(data).slice(0, 400);
+    throw new Error(`Verify OTP gagal (HTTP ${status}): ${msg}`);
   }
 
   const results = data.results || data.data || {};
   const token = results.token || results.auth_token;
   if (!token) {
-    throw new Error(`Response tidak berisi token: ${JSON.stringify(data).slice(0, 300)}`);
+    throw new Error(`Response tidak berisi token: ${JSON.stringify(data).slice(0, 400)}`);
   }
 
   // Token format standar OrderKuota: "user_id:hash"
