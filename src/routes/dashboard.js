@@ -104,7 +104,23 @@ router.post('/providers/:id/toggle', async (req, res) => {
 
 router.post('/providers/:id/delete', async (req, res) => {
   const id = parseInt(req.params.id, 10);
-  await prisma.provider.delete({ where: { id } }).catch(() => {});
+  try {
+    // Cascade delete: hapus invoice + mutation dulu (FK), baru provider.
+    // Tanpa ini, delete FAIL diam-diam karena FK constraint dan user
+    // heran "kenapa provider ga bisa dihapus?".
+    await prisma.$transaction([
+      prisma.webhookLog.deleteMany({
+        where: { invoice: { providerId: id } },
+      }),
+      prisma.invoice.deleteMany({ where: { providerId: id } }),
+      prisma.mutation.deleteMany({ where: { providerId: id } }),
+      prisma.provider.delete({ where: { id } }),
+    ]);
+    req.flash('info', 'Provider berhasil dihapus (termasuk invoice & mutation terkait).');
+  } catch (e) {
+    console.error('[provider delete] error:', e);
+    req.flash('error', `Gagal hapus provider: ${e.message}`);
+  }
   res.redirect('/providers');
 });
 
