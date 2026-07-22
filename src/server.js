@@ -10,6 +10,7 @@ const authRoutes = require('./routes/auth');
 const dashboardRoutes = require('./routes/dashboard');
 const payRoutes = require('./routes/pay');
 const apiRoutes = require('./routes/api');
+const compatRoutes = require('./routes/compat');
 const poller = require('./workers/poller');
 
 const app = express();
@@ -36,6 +37,7 @@ app.use(flash());
 app.use('/', authRoutes);
 app.use('/', payRoutes);
 app.use('/api/v1', apiRoutes);
+app.use('/', compatRoutes);      // /api/compat/... + /hooks/...
 app.use('/', dashboardRoutes);
 
 // 404
