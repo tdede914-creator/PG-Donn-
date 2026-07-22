@@ -108,6 +108,33 @@ router.post('/providers/:id/delete', async (req, res) => {
   res.redirect('/providers');
 });
 
+// Update credentials JSON provider tanpa harus hapus + bikin ulang.
+router.post('/providers/:id/update-credentials', async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const { credentials } = req.body;
+  try {
+    JSON.parse(credentials || '{}');   // validate
+    await prisma.provider.update({
+      where: { id },
+      data: { credentials: String(credentials || '{}') },
+    });
+    res.json({ ok: true, message: 'Credentials di-update.' });
+  } catch (e) {
+    res.json({ ok: false, message: `Gagal: ${e.message}` });
+  }
+});
+
+// Ambil credentials existing (untuk pre-fill di UI Edit).
+router.get('/providers/:id/credentials', async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const p = await prisma.provider.findUnique({
+    where: { id },
+    select: { credentials: true, type: true, name: true },
+  });
+  if (!p) return res.status(404).json({ ok: false });
+  res.json({ ok: true, ...p });
+});
+
 // Test connection ke provider (JSON response biar UI bisa render feedback).
 router.post('/providers/:id/test', async (req, res) => {
   const id = parseInt(req.params.id, 10);
