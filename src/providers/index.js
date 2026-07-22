@@ -13,21 +13,13 @@
  */
 
 const orderkuota = require('./orderkuota');
-const orderkuotaBalance = require('./orderkuota_balance');
-const orderkuotaJywa = require('./orderkuota_jywa');
-const zeppelinOrderkuota = require('./zeppelin_orderkuota');
 const danaBisnis = require('./danabisnis');
 const okeconnect = require('./okeconnect');
-const okeconnectH2h = require('./okeconnect_h2h');
 
 const registry = {
   orderkuota,
-  orderkuota_balance: orderkuotaBalance,
-  orderkuota_jywa: orderkuotaJywa,
-  zeppelin_orderkuota: zeppelinOrderkuota,
   dana_bisnis: danaBisnis,
   okeconnect,
-  okeconnect_h2h: okeconnectH2h,
 };
 
 function getAdapter(type) {
