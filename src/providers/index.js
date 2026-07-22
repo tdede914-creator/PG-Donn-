@@ -15,11 +15,13 @@
 const orderkuota = require('./orderkuota');
 const danaBisnis = require('./danabisnis');
 const okeconnect = require('./okeconnect');
+const okeconnectH2h = require('./okeconnect_h2h');
 
 const registry = {
   orderkuota,
   dana_bisnis: danaBisnis,
   okeconnect,
+  okeconnect_h2h: okeconnectH2h,
 };
 
 function getAdapter(type) {

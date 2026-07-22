@@ -19,6 +19,7 @@
           <div>
             <label class="block mb-1">Type</label>
             <select name="type" id="typeSelect" class="w-full border rounded px-3 py-2">
+              <option value="okeconnect_h2h">OkConnect H2H API (paling stabil — pakai merchantId + apiKey)</option>
               <option value="orderkuota">OrderKuota (login pakai OTP - seperti JAGOPAY)</option>
               <option value="okeconnect">OkConnect (scrape pakai session cookie)</option>
               <option value="dana_bisnis">DANA Bisnis</option>
@@ -115,6 +116,11 @@
 
   <script>
     const templates = {
+      okeconnect_h2h: JSON.stringify({
+        merchantId: "OK2447815",
+        apiKey: "442568617503335582447815OKCTA95085B7F6E675C6087EDA93EE038CCD",
+        baseUrl: "https://gateway.okeconnect.com"
+      }, null, 2),
       orderkuota: JSON.stringify({
         username: "AUTO_DIISI_LEWAT_LOGIN_OTP_DI_ATAS",
         authToken: "AUTO_DIISI_LEWAT_LOGIN_OTP_DI_ATAS",
