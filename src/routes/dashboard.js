@@ -277,11 +277,8 @@ router.post('/providers/orderkuota/verify-otp', async (req, res) => {
       appRegId: otpData.appRegId,
     });
 
-    // auth_username harus username STRING (bukan user_id numeric).
-    // OK response kembalikan username field yang bener.
     // Inject semua field yang OK expect. Default match device modern.
     // User bisa override via Edit Credentials kalau device asli beda.
-    const orderkuota = require('../providers/orderkuota');
     const credentialsJson = {
       username: otpData.username,
       authToken: result.token,
