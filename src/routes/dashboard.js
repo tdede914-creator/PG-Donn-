@@ -148,6 +148,27 @@ router.post('/providers/:id/poll-now', async (req, res) => {
       take: 5,
     });
 
+    // Untuk orderkuota, expose debug info (raw response) supaya user bisa
+    // liat OK balikin apa persisnya kalau normalize gagal detect.
+    let debugInfo = null;
+    try {
+      const oku = require('../providers/orderkuota');
+      if (typeof oku.getLastFetchDebug === 'function') {
+        const dbg = oku.getLastFetchDebug();
+        if (dbg) {
+          // Kirim ringkas: hanya top-level keys + preview
+          debugInfo = {
+            httpStatus: dbg.httpStatus,
+            contentType: dbg.contentType,
+            rawBodyLength: dbg.rawBodyLength,
+            parsedTopKeys: dbg.parsedTopKeys,
+            // Preview isi parsedData up to 4KB stringified untuk dilihat user
+            parsedDataPreview: JSON.stringify(dbg.parsedData, null, 2).slice(0, 4000),
+          };
+        }
+      }
+    } catch (_) {}
+
     res.json({
       ok: true,
       message: `Poll selesai. Fetched=${mutations.length}, Saved=${saved}, Matched=${matched}`,
@@ -162,6 +183,7 @@ router.post('/providers/:id/poll-now', async (req, res) => {
         brand: m.raw?.brand?.name || '',
       })),
       pendingInvoices: pending,
+      debug: debugInfo,
     });
   } catch (e) {
     res.json({ ok: false, message: e.message || String(e) });

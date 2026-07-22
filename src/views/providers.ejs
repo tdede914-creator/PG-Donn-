@@ -274,15 +274,24 @@
           return;
         }
         const el = document.getElementById(elId);
-        el.innerHTML =
+        let html =
           '<div class="bg-blue-100 text-blue-800 px-2 py-1 rounded">' +
           '🔄 ' + data.message + '</div>' +
           '<div class="mt-1 font-semibold text-xs">Sample mutasi terbaru (dari OK):</div>' +
-          '<pre class="bg-slate-50 p-2 rounded text-[10px] overflow-auto">' +
+          '<pre class="bg-slate-50 p-2 rounded text-[10px] overflow-auto max-h-40">' +
           JSON.stringify(data.sampleMutations, null, 2) + '</pre>' +
           '<div class="mt-1 font-semibold text-xs">Invoice PENDING yang menunggu:</div>' +
-          '<pre class="bg-slate-50 p-2 rounded text-[10px] overflow-auto">' +
+          '<pre class="bg-slate-50 p-2 rounded text-[10px] overflow-auto max-h-40">' +
           JSON.stringify(data.pendingInvoices, null, 2) + '</pre>';
+        if (data.debug) {
+          html += '<div class="mt-2 font-semibold text-xs text-red-700">🐛 Debug — Raw Response OrderKuota:</div>' +
+            '<div class="text-[10px] text-slate-600">HTTP ' + data.debug.httpStatus +
+            ' · Body length ' + data.debug.rawBodyLength +
+            ' · Top-level keys: ' + JSON.stringify(data.debug.parsedTopKeys) + '</div>' +
+            '<pre class="bg-red-50 p-2 rounded text-[10px] overflow-auto max-h-80 border border-red-200">' +
+            (data.debug.parsedDataPreview || '(no data)') + '</pre>';
+        }
+        el.innerHTML = html;
       } catch (e) {
         renderResult(elId, { ok: false, message: e.message });
       }

@@ -38,6 +38,12 @@ const GET_ENDPOINT = `${API_BASE}/get`;          // mutasi + saldo
 const APP_VERSION_NAME = '25.08.11';
 const APP_VERSION_CODE = '250811';
 const PHONE_MODEL = 'SM-G960N';
+
+// Debug: simpan info fetch terakhir supaya bisa di-inspect via Poll Now.
+let _lastFetchDebug = null;
+function getLastFetchDebug() {
+  return _lastFetchDebug;
+}
 // APP_REG_ID default dari kode PHP (FCM registration ID). Bisa di-override
 // via credentials untuk masing-masing user.
 const DEFAULT_APP_REG_ID =
@@ -63,9 +69,10 @@ function generateAppRegId() {
 // Helper: HTTP call + parsing yang toleran (JSON / text / empty)
 // ---------------------------------------------------------------------------
 async function callOkApi(endpoint, form, actionLabel) {
+  const payloadStr = form.toString();
   let res;
   try {
-    res = await axios.post(endpoint, form.toString(), {
+    res = await axios.post(endpoint, payloadStr, {
       headers: baseHeaders(),
       timeout: 25000,
       validateStatus: () => true,
@@ -108,6 +115,21 @@ async function callOkApi(endpoint, form, actionLabel) {
     throw new Error(
       `OrderKuota ${actionLabel}: response BUKAN JSON (HTTP ${res.status}, content-type: ${contentType}). Preview: ${preview}`,
     );
+  }
+
+  // Simpan debug info khusus fetch mutasi
+  if (actionLabel.includes('mutasi')) {
+    _lastFetchDebug = {
+      timestamp: new Date().toISOString(),
+      endpoint,
+      httpStatus: res.status,
+      contentType,
+      sentPayload: payloadStr.replace(/(auth_token|password)=[^&]+/g, '$1=***REDACTED***'),
+      rawBodyLength: rawBody.length,
+      rawBody: rawBody.length > 20000 ? rawBody.slice(0, 20000) + '...[TRUNCATED]' : rawBody,
+      parsedTopKeys: data && typeof data === 'object' ? Object.keys(data) : [],
+      parsedData: data,
+    };
   }
 
   return { status: res.status, data, rawBody, contentType };
@@ -388,6 +410,7 @@ module.exports = {
   requestOtp,
   verifyOtp,
   generateAppRegId,
+  getLastFetchDebug,
   DEFAULT_APP_REG_ID,
   DEFAULT_PHONE_UUID,
 };
