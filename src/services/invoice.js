@@ -57,15 +57,35 @@ async function createInvoice(opts) {
   if (!provider) throw new Error('Provider tidak ditemukan');
   if (!provider.isActive) throw new Error('Provider tidak aktif');
 
-  const uniqueCode = await pickUniqueCode(amount);
-  const totalAmount = amount + uniqueCode;
-  const qrisDynamic = qris.generateDynamicQris(provider.qrisStatic, totalAmount);
-  const expiredAt = new Date(Date.now() + config.invoice.expireMinutes * 60_000);
+  const expireMinutes = config.invoice.expireMinutes;
+  const expiredAt = new Date(Date.now() + expireMinutes * 60_000);
+
+  let uniqueCode;
+  let totalAmount;
+  let qrisDynamic;
+  let externalRef = null;
+
+  if (provider.type === 'zeppelin_orderkuota') {
+    // Delegate QRIS generation ke Zeppelin — mereka yang handle amount + dynamic QRIS.
+    // Tidak pakai unique code (Zeppelin cukup ID reference per invoice).
+    const zeppelin = require('../providers/zeppelin_orderkuota');
+    const gw = await zeppelin.createPaymentOnGateway(provider, amount, { expiryMinutes });
+    qrisDynamic = gw.qrisString;
+    totalAmount = gw.totalAmount || amount;
+    uniqueCode = gw.uniqueCode || (totalAmount - amount);
+    externalRef = gw.externalRef;
+  } else {
+    // Provider lain: generate QRIS lokal dari static QRIS + unique code trick.
+    uniqueCode = await pickUniqueCode(amount);
+    totalAmount = amount + uniqueCode;
+    qrisDynamic = qris.generateDynamicQris(provider.qrisStatic, totalAmount);
+  }
 
   const invoice = await prisma.invoice.create({
     data: {
       reference: generateReference(),
       merchantRef: merchantRef || null,
+      externalRef,
       amount,
       uniqueCode,
       totalAmount,

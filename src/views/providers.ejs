@@ -19,9 +19,10 @@
           <div>
             <label class="block mb-1">Type</label>
             <select name="type" id="typeSelect" class="w-full border rounded px-3 py-2">
-              <option value="orderkuota_balance">⭐ OrderKuota Balance-Delta (WORKS meski qris_history diblok)</option>
-              <option value="okeconnect_h2h">OkConnect H2H API (pakai merchantId + apiKey legacy)</option>
-              <option value="orderkuota">OrderKuota (login pakai OTP - seperti JAGOPAY)</option>
+              <option value="zeppelin_orderkuota">🚀 Zeppelin OrderKuota (per-invoice tracking, no race — RECOMMENDED)</option>
+              <option value="orderkuota_balance">OrderKuota Balance-Delta (fallback: cek delta saldo)</option>
+              <option value="okeconnect_h2h">OkConnect H2H API (legacy, mungkin ga works)</option>
+              <option value="orderkuota">OrderKuota (login pakai OTP - kena block versi)</option>
               <option value="okeconnect">OkConnect (scrape pakai session cookie)</option>
               <option value="dana_bisnis">DANA Bisnis</option>
             </select>
@@ -117,6 +118,11 @@
 
   <script>
     const templates = {
+      zeppelin_orderkuota: JSON.stringify({
+        authUsername: "USERNAME_ORDERKUOTA_KAMU",
+        authToken: "GET_DARI_https://zeppelin-api.vercel.app/get-auth",
+        apiUrl: "https://zeppelin-api.vercel.app"
+      }, null, 2),
       orderkuota_balance: JSON.stringify({
         username: "xxdonn",
         authToken: "PASTE_authToken_HASIL_OTP_LOGIN",

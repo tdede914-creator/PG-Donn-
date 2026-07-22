@@ -61,6 +61,7 @@ model Invoice {
   id            Int      @id @default(autoincrement())
   reference     String   @unique             // ID public, mis. INV-xxxxx
   merchantRef   String?                      // reference dari merchant (order_id kamu)
+  externalRef   String?                      // reference di 3rd party gateway (mis. Zeppelin)
   amount        Int                          // nominal ASLI (rupiah) tanpa kode unik
   uniqueCode    Int                          // kode unik 1-999
   totalAmount   Int                          // amount + uniqueCode (yang harus dibayar)
