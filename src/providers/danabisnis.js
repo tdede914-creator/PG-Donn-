@@ -108,4 +108,32 @@ async function fetchMutations(provider) {
     .filter((m) => m.amount > 0);
 }
 
-module.exports = { fetchMutations };
+async function testConnection(provider) {
+  try {
+    const mutations = await fetchMutations(provider);
+    return {
+      ok: true,
+      message: `Berhasil terhubung. Ditemukan ${mutations.length} mutasi terbaru.`,
+      sample: mutations.slice(0, 3).map((m) => ({
+        externalId: m.externalId,
+        amount: m.amount,
+        occurredAt: m.occurredAt,
+      })),
+    };
+  } catch (err) {
+    const msg = err.message || String(err);
+    let hint = '';
+    if (/401|403|token|signature/i.test(msg)) {
+      hint = ' — Kemungkinan token/signature invalid atau kadaluarsa. Grab ulang dari dashboard.dana.id (F12 → Network → copy Authorization & X-Signature).';
+    } else if (/endpoint DANA Bisnis belum/i.test(msg)) {
+      hint = ' — Field "endpoint" wajib ada di credentials JSON.';
+    } else if (/ENOTFOUND|ECONNREFUSED|timeout|ETIMEDOUT/i.test(msg)) {
+      hint = ' — Cek koneksi internet VPS atau endpoint tidak valid.';
+    } else if (/JSON invalid/i.test(msg)) {
+      hint = ' — Format credentials bukan JSON valid.';
+    }
+    return { ok: false, message: msg + hint };
+  }
+}
+
+module.exports = { fetchMutations, testConnection };

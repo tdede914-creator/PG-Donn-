@@ -11,14 +11,15 @@
     <div class="grid md:grid-cols-2 gap-6">
       <div class="bg-white rounded-lg shadow-sm p-4">
         <h2 class="font-semibold mb-3">Tambah Provider Baru</h2>
-        <form method="POST" action="/providers" class="space-y-3 text-sm">
+        <form id="addForm" method="POST" action="/providers" class="space-y-3 text-sm">
           <div>
             <label class="block mb-1">Nama</label>
             <input name="name" class="w-full border rounded px-3 py-2" placeholder="mis. OK utama" required />
           </div>
           <div>
             <label class="block mb-1">Type</label>
-            <select name="type" class="w-full border rounded px-3 py-2">
+            <select name="type" id="typeSelect" class="w-full border rounded px-3 py-2">
+              <option value="okeconnect">OkConnect (scrape mutasi QRIS pakai cookie session)</option>
               <option value="orderkuota">OrderKuota</option>
               <option value="dana_bisnis">DANA Bisnis</option>
             </select>
@@ -30,8 +31,12 @@
           </div>
           <div>
             <label class="block mb-1">Credentials (JSON)</label>
-            <textarea name="credentials" class="w-full border rounded px-3 py-2 h-40 font-mono text-xs" placeholder='{&#10;  "authToken": "...",&#10;  "authUsername": "..."&#10;}'></textarea>
-            <p class="text-xs text-slate-500 mt-1">Untuk OrderKuota: authToken + authUsername. Untuk DANA Bisnis: endpoint + headers + body + resultsPath.</p>
+            <textarea name="credentials" id="credentialsField" class="w-full border rounded px-3 py-2 h-40 font-mono text-xs"></textarea>
+            <div class="flex gap-2 mt-1">
+              <button type="button" onclick="fillTemplate()" class="text-xs text-blue-600 hover:underline">Isi template berdasarkan Type</button>
+              <button type="button" onclick="testPreview()" class="text-xs text-amber-600 hover:underline">🔌 Test connection dulu</button>
+            </div>
+            <div id="testResult" class="mt-2 text-xs"></div>
           </div>
           <button class="bg-slate-900 text-white px-4 py-2 rounded">Simpan</button>
         </form>
@@ -44,7 +49,7 @@
         <% } %>
         <ul class="space-y-3">
           <% providers.forEach(function(p) { %>
-            <li class="border rounded p-3">
+            <li class="border rounded p-3" id="prov-<%= p.id %>">
               <div class="flex items-center">
                 <div>
                   <div class="font-semibold"><%= p.name %></div>
@@ -52,15 +57,101 @@
                 </div>
                 <span class="ml-auto px-2 py-0.5 text-xs rounded <%= p.isActive ? 'bg-green-100 text-green-700' : 'bg-slate-200 text-slate-600' %>"><%= p.isActive ? 'AKTIF' : 'NONAKTIF' %></span>
               </div>
-              <div class="mt-2 flex gap-2">
-                <form method="POST" action="/providers/<%= p.id %>/toggle"><button class="text-xs text-slate-600 hover:text-slate-900">Toggle</button></form>
-                <form method="POST" action="/providers/<%= p.id %>/delete" onsubmit="return confirm('Hapus provider ini?')"><button class="text-xs text-red-600 hover:text-red-800">Hapus</button></form>
+              <div class="mt-2 flex gap-2 items-center">
+                <button onclick="testProvider(<%= p.id %>)" class="text-xs text-amber-600 hover:text-amber-800">🔌 Test</button>
+                <form method="POST" action="/providers/<%= p.id %>/toggle" class="inline"><button class="text-xs text-slate-600 hover:text-slate-900">Toggle</button></form>
+                <form method="POST" action="/providers/<%= p.id %>/delete" class="inline" onsubmit="return confirm('Hapus provider ini?')"><button class="text-xs text-red-600 hover:text-red-800">Hapus</button></form>
               </div>
+              <div id="test-<%= p.id %>" class="mt-2 text-xs"></div>
             </li>
           <% }) %>
         </ul>
       </div>
     </div>
   </main>
+
+  <script>
+    const templates = {
+      okeconnect: JSON.stringify({
+        sessionCookie: "PASTE_VALUE_ci_session_DARI_LAPTOP_F12",
+        cookieName: "ci_session",
+        mutasiUrl: "https://okeconnect.com/mutasi/index",
+        maxPages: 1
+      }, null, 2),
+      orderkuota: JSON.stringify({
+        authToken: "PASTE_TOKEN_DARI_F12_NETWORK_TAB",
+        authUsername: "USERNAME_ORDERKUOTA_KAMU",
+        endpoint: "https://app.orderkuota.com/api/v2/get/qris_history",
+        method: "POST"
+      }, null, 2),
+      dana_bisnis: JSON.stringify({
+        endpoint: "https://api-partner.dana.id/v1/merchant/transaction/history",
+        method: "POST",
+        headers: {
+          "Authorization": "Bearer TOKEN_DARI_F12",
+          "X-Signature": "SIGNATURE_DARI_F12"
+        },
+        body: {
+          startDate: "AUTO_TODAY",
+          endDate: "AUTO_TODAY"
+        },
+        resultsPath: "data.transactions"
+      }, null, 2),
+    };
+
+    function fillTemplate() {
+      const type = document.getElementById('typeSelect').value;
+      document.getElementById('credentialsField').value = templates[type] || '{}';
+    }
+
+    function renderResult(elId, result) {
+      const el = document.getElementById(elId);
+      if (result.ok) {
+        el.innerHTML = '<div class="bg-green-100 text-green-700 px-2 py-1 rounded">' +
+          '✓ ' + result.message + '</div>' +
+          (result.sample && result.sample.length ?
+            '<pre class="mt-1 bg-slate-50 p-2 rounded text-[10px] overflow-auto">' +
+            JSON.stringify(result.sample, null, 2) + '</pre>' : '');
+      } else {
+        el.innerHTML = '<div class="bg-red-100 text-red-700 px-2 py-1 rounded whitespace-pre-wrap">' +
+          '✗ ' + (result.message || 'error') + '</div>';
+      }
+    }
+
+    async function testPreview() {
+      const form = document.getElementById('addForm');
+      const fd = new FormData(form);
+      document.getElementById('testResult').innerHTML =
+        '<div class="text-slate-500">Testing...</div>';
+      try {
+        const r = await fetch('/providers/test-preview', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({
+            type: fd.get('type'),
+            qrisStatic: fd.get('qrisStatic') || '',
+            credentials: fd.get('credentials') || '{}',
+          }),
+        });
+        const data = await r.json();
+        renderResult('testResult', data);
+      } catch (e) {
+        renderResult('testResult', { ok: false, message: e.message });
+      }
+    }
+
+    async function testProvider(id) {
+      const elId = 'test-' + id;
+      document.getElementById(elId).innerHTML =
+        '<div class="text-slate-500">Testing...</div>';
+      try {
+        const r = await fetch('/providers/' + id + '/test', { method: 'POST' });
+        const data = await r.json();
+        renderResult(elId, data);
+      } catch (e) {
+        renderResult(elId, { ok: false, message: e.message });
+      }
+    }
+  </script>
 </body>
 </html>
