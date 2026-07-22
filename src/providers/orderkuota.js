@@ -39,17 +39,14 @@ const GET_ENDPOINT = `${API_BASE}/get`;          // mutasi + saldo
 // Kalau OK naik versi lagi, user bisa override lewat credentials JSON:
 //   { "appVersionName": "26.09.14", "appVersionCode": "260914" }
 // Format: YY.MM.DD / YYMMDD (year 2-digit, month, day).
-// Bump versi jauh di atas 26.06.27 (yang di Play Store user) karena OK server
-// tampaknya cek minimum version untuk qris_history lebih strict — bisa jadi
-// versi belum rollout ke device user tapi sudah aktif di server. Kalau
-// 26.12.31 masih ditolak, user bisa tune manual di dashboard.
-const APP_VERSION_NAME = '26.12.31';
-const APP_VERSION_CODE = '261231';
-// Bump juga device profile ke modern (Galaxy S24 + Android 14) karena
-// SM-G960N (Galaxy S9 2018) + Android 9 kelihatan sangat "outdated" dan
-// mungkin di-flag OK anti-scraping.
-const PHONE_MODEL = 'SM-S928B';
-const PHONE_ANDROID_VERSION = '14';
+// Default: match versi resmi Play Store per user (screenshot user: 26.06.27).
+// Bisa di-override lewat credentials JSON.
+const APP_VERSION_NAME = '26.06.27';
+const APP_VERSION_CODE = '260627';
+// Device profile match ke device user (Redmi 15 + Android 15).
+// User pakai device lain -> override via credentials: phoneModel, phoneAndroidVersion.
+const PHONE_MODEL = '25062RN2DY';    // Redmi 15 (internal model code)
+const PHONE_ANDROID_VERSION = '15';  // Android 15
 
 // Debug: simpan info fetch terakhir supaya bisa di-inspect via Poll Now.
 let _lastFetchDebug = null;
@@ -71,8 +68,13 @@ function baseHeaders() {
   };
 }
 
+function generatePhoneUuid() {
+  // Mimic panjang phone_uuid asli (22 char base64url).
+  return crypto.randomBytes(16).toString('base64url').slice(0, 22);
+}
+
 function generateAppRegId() {
-  const uuid = crypto.randomBytes(16).toString('base64url').slice(0, 22);
+  const uuid = generatePhoneUuid();
   const secret = crypto.randomBytes(140).toString('base64url');
   return `${uuid}:APA91b${secret.slice(0, 148)}`;
 }
@@ -155,7 +157,9 @@ async function callOkApi(endpoint, form, actionLabel) {
 // ---------------------------------------------------------------------------
 async function requestOtp({ username, password, appRegId }) {
   if (!username || !password) throw new Error('username dan password wajib');
-  const regId = appRegId || DEFAULT_APP_REG_ID;
+  // Generate app_reg_id UNIK per session (bukan pakai DEFAULT hardcoded)
+  // supaya OK ga anggap ini device yang sama dengan user lain (anti-scraping).
+  const regId = appRegId || generateAppRegId();
 
   const form = new URLSearchParams();
   form.append('username', username);

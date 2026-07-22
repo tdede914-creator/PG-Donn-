@@ -279,12 +279,20 @@ router.post('/providers/orderkuota/verify-otp', async (req, res) => {
 
     // auth_username harus username STRING (bukan user_id numeric).
     // OK response kembalikan username field yang bener.
+    // Inject semua field yang OK expect. Default match device modern.
+    // User bisa override via Edit Credentials kalau device asli beda.
+    const orderkuota = require('../providers/orderkuota');
     const credentialsJson = {
       username: otpData.username,
       authToken: result.token,
-      authUsername: result.username || otpData.username, // username string (mis. "xxdonn")
-      userId: result.userId,                              // simpan user_id juga (buat referensi)
+      authUsername: result.username || otpData.username,
+      userId: result.userId,
       appRegId: otpData.appRegId,
+      phoneUuid: String(otpData.appRegId).split(':')[0], // konsisten dgn appRegId
+      appVersionName: '26.06.27',
+      appVersionCode: '260627',
+      phoneModel: '25062RN2DY',
+      phoneAndroidVersion: '15',
     };
 
     delete req.session.okuOtp;

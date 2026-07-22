@@ -174,8 +174,12 @@
     function enrichCredentialsWithVersion(credsJsonString) {
       try {
         const obj = JSON.parse(credsJsonString);
-        if (!obj.appVersionName) obj.appVersionName = "26.06.27";
-        if (!obj.appVersionCode) obj.appVersionCode = "260627";
+        // Overwrite (bukan cuma if empty) supaya user yang creds-nya udah
+        // pernah di-set dengan default lama otomatis dapat versi terbaru.
+        obj.appVersionName = obj.appVersionName || "26.06.27";
+        obj.appVersionCode = obj.appVersionCode || "260627";
+        obj.phoneModel = obj.phoneModel || "25062RN2DY";
+        obj.phoneAndroidVersion = obj.phoneAndroidVersion || "15";
         return JSON.stringify(obj, null, 2);
       } catch (_) { return credsJsonString; }
     }
