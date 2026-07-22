@@ -19,6 +19,7 @@
           <div>
             <label class="block mb-1">Type</label>
             <select name="type" id="typeSelect" class="w-full border rounded px-3 py-2">
+              <option value="okeconnect">OkConnect (paling gampang, API publik)</option>
               <option value="orderkuota">OrderKuota</option>
               <option value="dana_bisnis">DANA Bisnis</option>
             </select>
@@ -71,6 +72,10 @@
 
   <script>
     const templates = {
+      okeconnect: JSON.stringify({
+        merchantId: "OKxxxxxx",
+        apiKey: "xxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      }, null, 2),
       orderkuota: JSON.stringify({
         authToken: "PASTE_TOKEN_DARI_F12_NETWORK_TAB",
         authUsername: "USERNAME_ORDERKUOTA_KAMU",
