@@ -1,73 +1,66 @@
 /**
- * OrderKuota adapter dengan OTP-based login (seperti JAGOPAY).
+ * OrderKuota adapter — port ke Node.js dari PHP wrapper
+ * https://github.com/tdede914-creator/orderkuota-api (fork dari yuf1dev/orderkuota-api).
+ *
+ * Original PHP: MIT License (c) 2023 YuF1Dev.
+ * Node.js port: 2026 tdede914-creator. License: MIT.
+ * See LICENSE-3RD-PARTY.md di root project.
  *
  * FLOW:
- *   1. User isi username + password OrderKuota di dashboard
- *   2. requestOtp() → panggil app.orderkuota.com → OK kirim OTP ke email user
- *   3. User masukkan OTP
- *   4. verifyOtp() → dapat token format "user_id:hash..."
- *   5. Token disimpan di Provider.credentials
- *   6. fetchMutations() pakai token → hit /api/v2/get/qris_history
+ *   1. requestOtp(username, password) -> OK kirim OTP ke email user
+ *   2. verifyOtp(username, otp) -> return {token, userId, name, balance}
+ *   3. Token disimpan di Provider.credentials
+ *   4. fetchMutations() -> ambil qris_history real-time (bukan pencairan)
+ *
+ * ENDPOINT (dari analisa source PHP):
+ *   - POST https://app.orderkuota.com/api/v2/login   (login + verify OTP, endpoint sama)
+ *   - POST https://app.orderkuota.com/api/v2/get     (mutasi + info akun)
  *
  * Format `credentials` (JSON) SETELAH login:
  * {
- *   "username":     "08xxxx",              // no HP / username OK
- *   "authToken":    "20xxxxx:9AySmJYLq...",// token dari verify OTP
- *   "authUsername": "20xxxxx",             // user_id (bagian sebelum ":" di token)
- *   "appRegId":     "AABBCC..."            // device id (auto-generated)
+ *   "username":     "08xxxx",                // no HP / username OK
+ *   "authToken":    "20xxxxx:9AySmJYLq...",  // token dari verify OTP
+ *   "authUsername": "20xxxxx",               // user_id (bagian sebelum ":" di token)
+ *   "appRegId":     "<FCM_reg_id>",          // device id
+ *   "phoneUuid":    "<uuid>"                 // phone uuid
  * }
- *
- * Endpoint bisa di-override di credentials:
- *   loginEndpoint, verifyEndpoint, historyEndpoint
  */
 
 const axios = require('axios');
 const crypto = require('crypto');
 
-const DEFAULT_LOGIN_ENDPOINT = 'https://app.orderkuota.com/api/login';
-const DEFAULT_VERIFY_ENDPOINT = 'https://app.orderkuota.com/api/login/verify';
-const DEFAULT_HISTORY_ENDPOINT = 'https://app.orderkuota.com/api/v2/get/qris_history';
+// Endpoint OrderKuota (dari analisa PHP source YuF1Dev + fork).
+const API_BASE = 'https://app.orderkuota.com/api/v2';
+const LOGIN_ENDPOINT = `${API_BASE}/login`;      // step 1 & 2 pakai endpoint sama
+const GET_ENDPOINT = `${API_BASE}/get`;          // mutasi + saldo
 
-// User-agent + versi app mimic client Android OK terbaru (bisa outdated).
-// Kalau OrderKuota update dan versi ini ditolak, user bisa override via credentials.
-const APP_VERSION_NAME = '25.06.14';
-const APP_VERSION_CODE = '250614';
+// Konstanta app dari kode PHP asli (bisa outdated kalau OK update).
+const APP_VERSION_NAME = '25.08.11';
+const APP_VERSION_CODE = '250811';
+const PHONE_MODEL = 'SM-G960N';
+// APP_REG_ID default dari kode PHP (FCM registration ID). Bisa di-override
+// via credentials untuk masing-masing user.
+const DEFAULT_APP_REG_ID =
+  'di309HvATsaiCppl5eDpoc:APA91bFUcTOH8h2XHdPRz2qQ5Bezn-3_TaycFcJ5pNLGWpmaxheQP9Ri0E56wLHz0_b1vcss55jbRQXZgc9loSfBdNa5nZJZVMlk7GS1JDMGyFUVvpcwXbMDg8tjKGZAurCGR4kDMDRJ';
+const DEFAULT_PHONE_UUID = 'di309HvATsaiCppl5eDpoc';
 
 function baseHeaders() {
   return {
-    'User-Agent': 'okhttp/4.9.3',
+    Host: 'app.orderkuota.com',
+    'User-Agent': 'okhttp/4.12.0',
     'Accept-Encoding': 'gzip',
     'Content-Type': 'application/x-www-form-urlencoded',
   };
 }
 
 function generateAppRegId() {
-  // 22 char base64url, mirip firebase reg id
-  return crypto.randomBytes(16).toString('base64url');
-}
-
-function friendlyError(err, action) {
-  if (err.response) {
-    const status = err.response.status;
-    let hint = '';
-    if (status === 469) {
-      hint =
-        ' — IP VPS kamu diblokir OrderKuota. Solusi: (1) Pindah VPS ke provider Indonesia (Niagahoster, Biznet Gio, IDCloudHost), atau (2) pakai OkConnect adapter yang tidak kena block.';
-    } else if (status === 401 || status === 403) {
-      hint = ' — Username/password salah atau session expired.';
-    }
-    return new Error(
-      `OrderKuota ${action}: HTTP ${status}: ${JSON.stringify(err.response.data).slice(0, 300)}${hint}`,
-    );
-  }
-  if (/ENOTFOUND|ECONNREFUSED|timeout|ETIMEDOUT/i.test(err.message)) {
-    return new Error(`OrderKuota ${action}: koneksi gagal (${err.message}). Cek internet VPS.`);
-  }
-  return err;
+  const uuid = crypto.randomBytes(16).toString('base64url').slice(0, 22);
+  const secret = crypto.randomBytes(140).toString('base64url');
+  return `${uuid}:APA91b${secret.slice(0, 148)}`;
 }
 
 // ---------------------------------------------------------------------------
-// Helper: HTTP call ke OrderKuota + parsing yang toleran (JSON / text / empty).
+// Helper: HTTP call + parsing yang toleran (JSON / text / empty)
 // ---------------------------------------------------------------------------
 async function callOkApi(endpoint, form, actionLabel) {
   let res;
@@ -76,37 +69,39 @@ async function callOkApi(endpoint, form, actionLabel) {
       headers: baseHeaders(),
       timeout: 25000,
       validateStatus: () => true,
-      // Keep raw response as string so kita bisa parse manual (handle non-JSON)
       transformResponse: [(data) => data],
     });
   } catch (err) {
-    throw friendlyError(err, actionLabel);
+    if (/ENOTFOUND|ECONNREFUSED|timeout|ETIMEDOUT/i.test(err.message)) {
+      throw new Error(
+        `OrderKuota ${actionLabel}: koneksi gagal (${err.message}). Cek internet VPS.`,
+      );
+    }
+    throw err;
   }
 
   const contentType = String(res.headers?.['content-type'] || '');
   const rawBody = String(res.data ?? '');
-  // Debug log ke stdout — muncul di pm2 logs
   console.log(
-    `[OrderKuota ${actionLabel}] endpoint=${endpoint} status=${res.status} ct="${contentType}" body="${rawBody.slice(0, 400)}"`,
+    `[OrderKuota ${actionLabel}] status=${res.status} ct="${contentType}" body="${rawBody.slice(0, 400)}"`,
   );
 
   if (res.status === 469) {
     throw new Error(
-      `HTTP 469 dari OrderKuota — "Gunakan Jaringan Internet Lainnya". IP VPS masih diblokir. Solusi: pindah provider VPS Indonesia lain, atau pakai OkConnect adapter.`,
+      `HTTP 469 dari OrderKuota — "Gunakan Jaringan Internet Lainnya". IP VPS diblokir. Solusi: pindah VPS Indonesia lain (Niagahoster/IDCloudHost) atau pakai OkConnect adapter.`,
     );
   }
 
-  // Kosong / bukan JSON → error dengan detail
   if (!rawBody.trim()) {
     throw new Error(
-      `OrderKuota ${actionLabel}: response KOSONG (HTTP ${res.status}, content-type: ${contentType || 'none'}). Endpoint mungkin salah / diblokir silently.`,
+      `OrderKuota ${actionLabel}: response KOSONG (HTTP ${res.status}, content-type: ${contentType || 'none'}). Endpoint mungkin salah / diblokir.`,
     );
   }
+
   let data;
   try {
     data = JSON.parse(rawBody);
   } catch (e) {
-    // Response bukan JSON — biasanya HTML (blocking page, login page, dsb)
     const preview = rawBody.slice(0, 300).replace(/\s+/g, ' ');
     throw new Error(
       `OrderKuota ${actionLabel}: response BUKAN JSON (HTTP ${res.status}, content-type: ${contentType}). Preview: ${preview}`,
@@ -117,54 +112,61 @@ async function callOkApi(endpoint, form, actionLabel) {
 }
 
 // ---------------------------------------------------------------------------
-// STEP 1: Request OTP
+// STEP 1: Login request (kirim OTP ke email)
+// ---------------------------------------------------------------------------
+// Payload sesuai PHP loginRequest($username, $password):
+//   username, password, app_reg_id, app_version_code, app_version_name
 // ---------------------------------------------------------------------------
 async function requestOtp({ username, password, appRegId }) {
   if (!username || !password) throw new Error('username dan password wajib');
-  const regId = appRegId || generateAppRegId();
+  const regId = appRegId || DEFAULT_APP_REG_ID;
 
   const form = new URLSearchParams();
   form.append('username', username);
   form.append('password', password);
   form.append('app_reg_id', regId);
-  form.append('app_version_name', APP_VERSION_NAME);
   form.append('app_version_code', APP_VERSION_CODE);
+  form.append('app_version_name', APP_VERSION_NAME);
 
-  const { status, data } = await callOkApi(DEFAULT_LOGIN_ENDPOINT, form, 'request OTP');
+  const { status, data } = await callOkApi(LOGIN_ENDPOINT, form, 'request OTP');
 
   const success = data.success === true || data.status === true;
   if (!success) {
     const msg =
       data.message ||
       data.error ||
-      data.errors ||
+      (data.errors && JSON.stringify(data.errors)) ||
       JSON.stringify(data).slice(0, 400);
     throw new Error(`Login OrderKuota gagal (HTTP ${status}): ${msg}`);
   }
 
   return {
     success: true,
-    message: data.message || data.results?.message || 'OTP dikirim via email OrderKuota kamu',
+    message:
+      data.message ||
+      data.results?.message ||
+      'OTP dikirim via email OrderKuota',
     appRegId: regId,
   };
 }
 
 // ---------------------------------------------------------------------------
-// STEP 2: Verify OTP
+// STEP 2: Verify OTP (dapat token)
 // ---------------------------------------------------------------------------
-async function verifyOtp({ username, password, otp, appRegId }) {
+// Endpoint sama /api/v2/login. Beda-nya field password diisi OTP.
+// ---------------------------------------------------------------------------
+async function verifyOtp({ username, otp, appRegId }) {
   if (!otp) throw new Error('OTP wajib');
-  if (!appRegId) throw new Error('appRegId hilang — request OTP dulu');
+  const regId = appRegId || DEFAULT_APP_REG_ID;
 
   const form = new URLSearchParams();
   form.append('username', username);
-  form.append('password', password);
-  form.append('otp', otp);
-  form.append('app_reg_id', appRegId);
-  form.append('app_version_name', APP_VERSION_NAME);
+  form.append('password', otp);
+  form.append('app_reg_id', regId);
   form.append('app_version_code', APP_VERSION_CODE);
+  form.append('app_version_name', APP_VERSION_NAME);
 
-  const { status, data } = await callOkApi(DEFAULT_VERIFY_ENDPOINT, form, 'verify OTP');
+  const { status, data } = await callOkApi(LOGIN_ENDPOINT, form, 'verify OTP');
 
   const success = data.success === true || data.status === true;
   if (!success) {
@@ -172,13 +174,15 @@ async function verifyOtp({ username, password, otp, appRegId }) {
     throw new Error(`Verify OTP gagal (HTTP ${status}): ${msg}`);
   }
 
+  // Token format standar OrderKuota: "user_id:hash"
   const results = data.results || data.data || {};
-  const token = results.token || results.auth_token;
+  const token =
+    results.token ||
+    results.auth_token ||
+    data.token;
   if (!token) {
     throw new Error(`Response tidak berisi token: ${JSON.stringify(data).slice(0, 400)}`);
   }
-
-  // Token format standar OrderKuota: "user_id:hash"
   const userId = String(token).split(':')[0];
 
   return {
@@ -189,11 +193,17 @@ async function verifyOtp({ username, password, otp, appRegId }) {
     username: results.username || username,
     balance: results.balance || results.saldo || 0,
     qrisName: results.qris_name || '',
+    appRegId: regId,
   };
 }
 
 // ---------------------------------------------------------------------------
-// STEP 3: Fetch mutasi (dipakai poller)
+// STEP 3: Fetch mutasi QRIS (dipakai poller)
+// ---------------------------------------------------------------------------
+// Sesuai PHP getTransactionQris(). Payload minta:
+//   requests[0]=account, requests[1]=point,
+//   requests[qris_history][jumlah]=30
+//   requests[qris_history][selected]=<type>  (opsional: kredit/debet)
 // ---------------------------------------------------------------------------
 async function fetchMutations(provider) {
   let creds;
@@ -210,62 +220,54 @@ async function fetchMutations(provider) {
     );
   }
   const authUsername = creds.authUsername || String(token).split(':')[0];
-  const endpoint = creds.historyEndpoint || DEFAULT_HISTORY_ENDPOINT;
+  const appRegId = creds.appRegId || DEFAULT_APP_REG_ID;
+  const phoneUuid = creds.phoneUuid || DEFAULT_PHONE_UUID;
 
   const form = new URLSearchParams();
-  form.append('auth_token', token);
-  form.append('auth_username', authUsername);
-  form.append('app_reg_id', creds.appRegId || '');
-  form.append('app_version_name', APP_VERSION_NAME);
+  form.append('request_time', String(Math.floor(Date.now() / 1000)));
+  form.append('app_reg_id', appRegId);
+  form.append('phone_android_version', '9');
   form.append('app_version_code', APP_VERSION_CODE);
-  form.append(
-    'requests',
-    JSON.stringify({ qris_history: { jumlah: 30 } }),
-  );
+  form.append('phone_uuid', phoneUuid);
+  form.append('auth_username', authUsername);
+  form.append('requests[0]', 'account');
+  form.append('requests[1]', 'point');
+  form.append('requests[qris_history][jumlah]', '30');
+  form.append('requests[qris_history][selected]', 'kredit'); // hanya masuk
+  form.append('auth_token', token);
+  form.append('app_version_name', APP_VERSION_NAME);
+  form.append('ui_mode', 'light');
+  form.append('phone_model', PHONE_MODEL);
 
-  let res;
-  try {
-    res = await axios.post(endpoint, form.toString(), {
-      headers: baseHeaders(),
-      timeout: 20000,
-      validateStatus: () => true,
-    });
-  } catch (err) {
-    throw friendlyError(err, 'fetch mutasi');
-  }
-
-  if (res.status === 469) {
-    throw new Error(
-      `HTTP 469: OrderKuota blokir VPS ini pada fetch mutasi. Pakai VPS Indonesia atau OkConnect.`,
-    );
-  }
-
-  const data = res.data || {};
+  const { status, data } = await callOkApi(GET_ENDPOINT, form, 'fetch mutasi');
 
   // Deteksi token expired.
   if (data.success === false || data.status === false) {
     const msg = String(data.message || '').toLowerCase();
-    if (/token|login|auth|expired|otp/i.test(msg)) {
+    if (/token|login|auth|expired|otp/.test(msg)) {
       throw new Error(
-        `Token OrderKuota expired: "${data.message}". Login ulang lewat menu Providers → Login OrderKuota.`,
+        `Token OrderKuota expired: "${data.message}". Login ulang lewat menu Providers → OTP.`,
       );
     }
-    throw new Error(`OrderKuota response error: ${data.message || JSON.stringify(data).slice(0, 300)}`);
+    throw new Error(
+      `OrderKuota error (HTTP ${status}): ${data.message || JSON.stringify(data).slice(0, 300)}`,
+    );
   }
 
   return normalize(data);
 }
 
 /**
- * Struktur mutasi OrderKuota (mengikuti format JAGOPAY docs & app OK):
- *   data.results.qris_history.results[]
- *   atau data.data.mutasi[]
- * Item:
- *   { id, kredit, saldo_akhir, keterangan, tanggal, status, brand: {name, logo} }
+ * Normalisasi response OrderKuota.
+ * Struktur (dari komunitas + PHP fork):
+ *   data.qris_history.results[] atau data.results.qris_history.results[]
+ *   Item: { id, kredit, saldo_akhir, keterangan, tanggal, status, brand:{name,logo} }
  */
 function normalize(data) {
   const items =
+    data?.qris_history?.results ||
     data?.results?.qris_history?.results ||
+    data?.data?.qris_history?.results ||
     data?.data?.mutasi ||
     data?.mutasi ||
     [];
@@ -273,12 +275,21 @@ function normalize(data) {
 
   return items
     .filter((it) => {
+      // Hanya kredit (masuk). PHP fork sudah filter via 'selected=kredit',
+      // tapi jaga-jaga kalau field 'status' tetap ada.
       const status = String(it.status || it.type || 'IN').toUpperCase();
+      // Kalau kredit > 0, itu masuk. Kalau debit > 0, keluar - skip.
+      const kredit = parseInt(String(it.kredit || 0).replace(/[^0-9]/g, ''), 10) || 0;
+      const debet = parseInt(String(it.debet || it.debit || 0).replace(/[^0-9]/g, ''), 10) || 0;
+      if (kredit > 0) return true;
+      if (debet > 0) return false;
+      // Fallback: berdasarkan status string
       return ['IN', 'CR', 'CREDIT', 'MASUK'].includes(status);
     })
     .map((it) => {
-      const amountRaw = it.kredit ?? it.amount ?? it.nominal ?? 0;
-      const amount = parseInt(String(amountRaw).replace(/[^0-9]/g, ''), 10) || 0;
+      const amount =
+        parseInt(String(it.kredit || it.amount || it.nominal || 0).replace(/[^0-9]/g, ''), 10) ||
+        0;
       const externalId = String(
         it.id ?? it.trx_id ?? it.reference ?? `${it.tanggal || ''}-${amount}`,
       );
@@ -299,12 +310,13 @@ async function testConnection(provider) {
     const mutations = await fetchMutations(provider);
     return {
       ok: true,
-      message: `Berhasil fetch OrderKuota. Ditemukan ${mutations.length} mutasi masuk terbaru.`,
+      message: `Berhasil fetch OrderKuota. Ditemukan ${mutations.length} mutasi masuk terbaru (real-time, sebelum pencairan).`,
       sample: mutations.slice(0, 3).map((m) => ({
         externalId: m.externalId,
         amount: m.amount,
         occurredAt: m.occurredAt,
-        brand: m.raw?.brand?.name || m.raw?.keterangan || '',
+        brand: m.raw?.brand?.name || '',
+        keterangan: m.raw?.keterangan || '',
       })),
     };
   } catch (err) {
@@ -318,4 +330,6 @@ module.exports = {
   requestOtp,
   verifyOtp,
   generateAppRegId,
+  DEFAULT_APP_REG_ID,
+  DEFAULT_PHONE_UUID,
 };

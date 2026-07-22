@@ -182,7 +182,6 @@ router.post('/providers/orderkuota/verify-otp', async (req, res) => {
     const orderkuota = require('../providers/orderkuota');
     const result = await orderkuota.verifyOtp({
       username: otpData.username,
-      password: otpData.password,
       otp: String(otp || '').trim(),
       appRegId: otpData.appRegId,
     });
