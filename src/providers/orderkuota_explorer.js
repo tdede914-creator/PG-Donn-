@@ -1,252 +1,577 @@
+import axios, { AxiosResponse, AxiosError } from "axios";
+import * as QRCode from "qrcode";
+import * as qs from "qs";
+import { OrderKuotaConfig, HistoryOptions, OrderKuotaError } from "./types.js";
+
 /**
- * URL Explorer untuk OrderKuota API.
+ * OrderKuota API wrapper for Indonesian QRIS payment system.
  *
- * Adapter debugging yang coba MULTIPLE variant URL/payload buat cari
- * endpoint/param yang lolos anti-scraping OK. Tidak untuk polling production,
- * cuma untuk discovery. Dipanggil dari tombol "Try All Variants" di dashboard.
+ * Supports OTP authentication, token management, QRIS payments, and QR code generation.
  *
- * Reuse credentials dari provider orderkuota_balance (authToken dll).
+ * @example
+ * ```typescript
+ * const client = new OrderKuota({
+ *   username: 'your-username',
+ *   password: 'your-password'
+ * });
+ *
+ * const otp = await client.getOTP();
+ * const token = await client.getToken('123456');
+ * const payment = await client.generateQRISAjaib(10000);
+ * ```
  */
+export default class OrderKuota {
+  private readonly username: string;
+  private readonly password: string;
+  private token?: string;
+  private readonly baseQrString?: string;
 
-const axios = require('axios');
+  // API endpoints
+  private static readonly OK_LOGIN_ENDPOINT =
+    "https://app.orderkuota.com/api/v2/login";
+  private static readonly OKE_GET_ENDPOINT =
+    "https://app.orderkuota.com/api/v2/get";
 
-const HOST = 'app.orderkuota.com';
-const APP_VERSION_NAME = '26.06.27';
-const APP_VERSION_CODE = '260627';
-
-function baseHeaders() {
-  return {
-    Host: HOST,
-    'User-Agent': 'okhttp/4.12.0',
-    'Accept-Encoding': 'gzip',
-    'Content-Type': 'application/x-www-form-urlencoded',
+  private static readonly OK_HEADERS = {
+    "User-Agent": "okhttp/4.12.0",
+    Host: "app.orderkuota.com",
+    "Content-Type": "application/x-www-form-urlencoded",
   };
-}
 
-function buildBaseParams(creds) {
-  const token = creds.authToken;
-  const authUsername = creds.authUsername || creds.username;
-  return {
-    request_time: String(Math.floor(Date.now() / 1000)),
-    app_reg_id: creds.appRegId || '',
-    phone_android_version: creds.phoneAndroidVersion || '15',
-    app_version_code: creds.appVersionCode || APP_VERSION_CODE,
-    phone_uuid: creds.phoneUuid || '',
-    auth_username: authUsername,
-    auth_token: token,
-    app_version_name: creds.appVersionName || APP_VERSION_NAME,
-    ui_mode: 'light',
-    phone_model: creds.phoneModel || '25062RN2DY',
+  private static readonly OK_CONSTANTS = {
+    app_reg_id:
+      "e5aCENGrQOWvhQWYnv-uNc:APA91bFj3O_mv5Nf_2SM4Duz4Z8Ug3nBNaHlgodlY92CBuNIA9xmc0Dahev5xxqssPmnTdcie4mlhiG9ZAE1iCe1QbyhxcUyGXlenJxiUaXdfm1rklOEo9k",
+    phone_uuid: "e5aCENGrQOWvhQWYnv-uNc",
+    phone_model: "sdk_gphone64_x86_64",
+    phone_android_version: "16",
+    app_version_code: "250811",
+    app_version_name: "25.08.11",
+    ui_mode: "light",
   };
-}
 
-// Variant list — round 2 focused pada V7 breakthrough
-const VARIANTS = [
-  // ============ V7 DEEP DIVE (endpoint yang respond spesifik) ============
-  {
-    name: 'V7a: /qris/mutation + auth_username=<user_id_numeric>',
-    method: 'POST',
-    url: 'https://app.orderkuota.com/api/v2/qris/mutation',
-    transformParams: (params, creds) => {
-      const userId = String(creds.authToken || '').split(':')[0];
-      return { ...params, auth_username: userId, jumlah: '30' };
-    },
-  },
-  {
-    name: 'V7b: /qris/mutation + user_id in body',
-    method: 'POST',
-    url: 'https://app.orderkuota.com/api/v2/qris/mutation',
-    transformParams: (params, creds) => {
-      const userId = String(creds.authToken || '').split(':')[0];
-      return { ...params, user_id: userId, jumlah: '30' };
-    },
-  },
-  {
-    name: 'V7c: /qris/mutation + id in body',
-    method: 'POST',
-    url: 'https://app.orderkuota.com/api/v2/qris/mutation',
-    transformParams: (params, creds) => {
-      const userId = String(creds.authToken || '').split(':')[0];
-      return { ...params, id: userId, jumlah: '30' };
-    },
-  },
-  {
-    name: 'V7d: /qris/mutation/<user_id> path param',
-    method: 'POST',
-    urlBuilder: (creds) => {
-      const userId = String(creds.authToken || '').split(':')[0];
-      return `https://app.orderkuota.com/api/v2/qris/mutation/${userId}`;
-    },
-    extraParams: { jumlah: '30' },
-  },
-  {
-    name: 'V7e: /qris/mutation minimal (cuma auth_token + user_id)',
-    method: 'POST',
-    url: 'https://app.orderkuota.com/api/v2/qris/mutation',
-    minimalParams: true,
-    transformParams: (params, creds) => {
-      const userId = String(creds.authToken || '').split(':')[0];
-      return {
-        auth_token: creds.authToken,
-        user_id: userId,
-        jumlah: '30',
-      };
-    },
-  },
-  {
-    name: 'V7f: /qris/mutation + all + userid (no underscore)',
-    method: 'POST',
-    url: 'https://app.orderkuota.com/api/v2/qris/mutation',
-    transformParams: (params, creds) => {
-      const userId = String(creds.authToken || '').split(':')[0];
-      return { ...params, userid: userId, jumlah: '30' };
-    },
-  },
-  {
-    name: 'V7g: /qris/mutation + username_id',
-    method: 'POST',
-    url: 'https://app.orderkuota.com/api/v2/qris/mutation',
-    transformParams: (params, creds) => {
-      const userId = String(creds.authToken || '').split(':')[0];
-      return { ...params, username_id: userId, jumlah: '30' };
-    },
-  },
-  // ============ Additional endpoint permutations ============
-  {
-    name: 'V9: /api/v2/qris/history + user_id',
-    method: 'POST',
-    url: 'https://app.orderkuota.com/api/v2/qris/history',
-    transformParams: (params, creds) => {
-      const userId = String(creds.authToken || '').split(':')[0];
-      return { ...params, user_id: userId, jumlah: '30' };
-    },
-  },
-  {
-    name: 'V10: /api/v2/mutation/qris + user_id',
-    method: 'POST',
-    url: 'https://app.orderkuota.com/api/v2/mutation/qris',
-    transformParams: (params, creds) => {
-      const userId = String(creds.authToken || '').split(':')[0];
-      return { ...params, user_id: userId, jumlah: '30' };
-    },
-  },
-  {
-    name: 'V11: /api/v2/qris/get_mutation',
-    method: 'POST',
-    url: 'https://app.orderkuota.com/api/v2/qris/get_mutation',
-    transformParams: (params, creds) => {
-      const userId = String(creds.authToken || '').split(':')[0];
-      return { ...params, user_id: userId, jumlah: '30' };
-    },
-  },
-  // ============ Original V1 for baseline comparison ============
-  {
-    name: 'V1: /api/v2/get requests[qris_history][jumlah]=30 (baseline)',
-    method: 'POST',
-    url: 'https://app.orderkuota.com/api/v2/get',
-    extraParams: {
-      'requests[0]': 'account',
-      'requests[qris_history][jumlah]': '30',
-      'requests[qris_history][selected]': 'kredit',
-    },
-  },
-];
-
-async function tryVariant(creds, variant) {
-  let params;
-  if (variant.transformParams) {
-    if (variant.minimalParams) {
-      params = variant.transformParams({}, creds);
-    } else {
-      params = variant.transformParams(buildBaseParams(creds), creds);
+  /**
+   * Create OrderKuota client
+   *
+   * @param config Configuration with username and password
+   * @throws {OrderKuotaError} When username or password is missing
+   */
+  constructor(config: OrderKuotaConfig) {
+    // Validate required fields
+    if (!config.username || !config.password) {
+      throw new OrderKuotaError(
+        "Missing required configuration. Username and password are required.",
+        "MISSING_CONFIG",
+      );
     }
-  } else {
-    params = { ...buildBaseParams(creds), ...(variant.extraParams || {}) };
+
+    this.username = config.username;
+    this.password = config.password;
+    this.token = config.token;
+    this.baseQrString = config.baseQrString;
   }
-  const body = new URLSearchParams(params).toString();
-  const url = variant.urlBuilder ? variant.urlBuilder(creds) : variant.url;
 
-  const started = Date.now();
-  try {
-    const res = await axios.post(url, body, {
-      headers: baseHeaders(),
-      timeout: 15000,
-      validateStatus: () => true,
-      transformResponse: [(data) => data],
-    });
-    const raw = String(res.data ?? '');
-    const took = Date.now() - started;
-
-    // Try parse JSON, cek kalau qris_history-like data ada
-    let hasMutasi = false;
-    let subStatus = null;
-    let mutasiCount = 0;
+  /**
+   * Request OTP for authentication
+   *
+   * @returns Promise with OTP response including email
+   */
+  async getOTP(): Promise<any> {
     try {
-      const parsed = JSON.parse(raw);
-      const qh = parsed.qris_history || parsed.qris_mutation || parsed.qris_transactions || parsed.mutasi_qris;
-      if (qh) {
-        subStatus = qh.success !== undefined ? qh.success : 'has-key';
-        if (Array.isArray(qh.results) || Array.isArray(qh.data)) {
-          const arr = qh.results || qh.data;
-          hasMutasi = arr.length > 0;
-          mutasiCount = arr.length;
-        }
+      const payload = qs.stringify({
+        username: this.username,
+        password: this.password,
+        ...OrderKuota.OK_CONSTANTS,
+      });
+
+      const response: AxiosResponse = await axios.post(
+        OrderKuota.OK_LOGIN_ENDPOINT,
+        payload,
+        {
+          headers: {
+            ...OrderKuota.OK_HEADERS,
+            "User-Agent": "okhttp/4.12.0",
+          },
+        },
+      );
+
+      const data = response?.data;
+
+      // Return API response directly
+      if (data?.success === false) {
+        return { author: "WJayadana", ...data };
       }
-    } catch (_) {}
 
-    // Deteksi respons yang "interesting" — bukan generic {success:true} kosong
-    let responseType = 'unknown';
-    try {
-      const parsed = JSON.parse(raw);
-      if (parsed.message) responseType = `error:${parsed.message.slice(0, 60)}`;
-      else if (Object.keys(parsed).length > 1) responseType = 'has-data';
-      else if (parsed.success !== undefined) responseType = 'empty-success';
-    } catch (_) {
-      if (raw.includes('Just a moment')) responseType = 'cloudflare-block';
-      else if (res.status >= 400) responseType = `http-${res.status}`;
+      const email = data?.results?.otp_value;
+
+      if (!email) {
+        return {
+          author: "WJayadana",
+          success: false,
+          message: "Failed to get OTP email from response",
+        };
+      }
+
+      return {
+        author: "WJayadana",
+        status: "success",
+        email: email,
+        message: `OTP has been sent to ${email}. Please check your email.`,
+      };
+    } catch (error) {
+      if (error instanceof OrderKuotaError) {
+        throw error;
+      }
+
+      if (error instanceof AxiosError) {
+        return {
+          author: "WJayadana",
+          success: false,
+          message: `Network error: ${error.message}`,
+        };
+      }
+
+      return {
+        author: "WJayadana",
+        success: false,
+        message: `Unexpected error during OTP request: ${error}`,
+      };
     }
+  }
 
+  /**
+   * Authenticates and retrieves access token using OTP.
+   *
+   * @param otp OTP code received via email
+   * @returns Promise with authentication token and user data
+   */
+  async getToken(otp: string): Promise<any> {
+    try {
+      if (!otp) {
+        throw new OrderKuotaError(
+          "OTP code is required",
+          "INVALID_CREDENTIALS",
+        );
+      }
+
+      const payload = qs.stringify({
+        username: this.username,
+        password: otp,
+        ...OrderKuota.OK_CONSTANTS,
+      });
+
+      const response: AxiosResponse = await axios.post(
+        OrderKuota.OK_LOGIN_ENDPOINT,
+        payload,
+        {
+          headers: {
+            ...OrderKuota.OK_HEADERS,
+            "User-Agent": "okhttp/4.12.0",
+          },
+        },
+      );
+
+      const data = response.data;
+
+      // Return API response directly
+      if (data?.success === false) {
+        return { author: "WJayadana", ...data };
+      }
+
+      if (!data?.results?.token) {
+        return {
+          author: "WJayadana",
+          success: false,
+          message: "Token not found in response.",
+        };
+      }
+
+      this.token = data.results.token;
+
+      return {
+        author: "WJayadana",
+        status: "success",
+        token: data.results.token,
+        id: data.results.id,
+        name: data.results.name,
+        username: data.results.username,
+        balance: data.results.balance,
+        message: "Token successfully obtained.",
+      };
+    } catch (error) {
+      if (error instanceof OrderKuotaError) {
+        throw error;
+      }
+
+      if (error instanceof AxiosError) {
+        return {
+          author: "WJayadana",
+          success: false,
+          message: `Network error: ${error.message}`,
+        };
+      }
+
+      return {
+        author: "WJayadana",
+        success: false,
+        message: `Unexpected error during token request: ${error}`,
+      };
+    }
+  }
+
+  /**
+   * Get QRIS transaction history
+   *
+   * @param historyType Type of history ('qris_history' or 'qris_ajaib_history')
+   * @param options Optional filters for history
+   * @returns Promise with transaction history
+   */
+  async getQRISHistory(
+    historyType: string = "qris_history",
+    options: HistoryOptions = {},
+  ): Promise<any> {
+    try {
+      if (!this.token) {
+        throw new OrderKuotaError(
+          "Token is required. Please call getToken() first.",
+          "INVALID_CREDENTIALS",
+        );
+      }
+
+      const timestamp = Date.now().toString();
+      const tokenId = this.token.split(":")[0]; // Extract token ID
+
+      // Prepare payload for QRIS history
+      const payload = {
+        app_reg_id: OrderKuota.OK_CONSTANTS.app_reg_id,
+        phone_uuid: OrderKuota.OK_CONSTANTS.phone_uuid,
+        phone_model: OrderKuota.OK_CONSTANTS.phone_model,
+        [`requests[${historyType}][keterangan]`]: options.keterangan || "",
+        [`requests[${historyType}][jumlah]`]: options.jumlah || "",
+        request_time: timestamp,
+        phone_android_version: OrderKuota.OK_CONSTANTS.phone_android_version,
+        app_version_code: OrderKuota.OK_CONSTANTS.app_version_code,
+        auth_username: this.username,
+        [`requests[${historyType}][page]`]: options.page || "1",
+        auth_token: this.token,
+        app_version_name: OrderKuota.OK_CONSTANTS.app_version_name,
+        ui_mode: OrderKuota.OK_CONSTANTS.ui_mode,
+        [`requests[${historyType}][dari_tanggal]`]: options.dari_tanggal || "",
+        "requests[0]": "account",
+        [`requests[${historyType}][ke_tanggal]`]: options.ke_tanggal || "",
+      };
+
+      const response: AxiosResponse = await axios.post(
+        `https://app.orderkuota.com/api/v2/qris/mutasi/${tokenId}`,
+        qs.stringify(payload),
+        {
+          headers: {
+            ...OrderKuota.OK_HEADERS,
+            "Content-Type": "application/x-www-form-urlencoded",
+            "User-Agent": "okhttp/4.12.0",
+          },
+        },
+      );
+
+  return { author: "WJayadana", ...response.data };
+    } catch (error) {
+      if (error instanceof OrderKuotaError) {
+        throw error;
+      }
+
+      if (error instanceof AxiosError) {
+        return {
+          author: "WJayadana",
+          success: false,
+          message: `Network error: ${error.message}`,
+        };
+      }
+
+      return {
+        author: "WJayadana",
+        success: false,
+        message: `Unexpected error during QRIS history request: ${error}`,
+      };
+    }
+  }
+
+  /**
+   * Fetches available QRIS menu options and account status.
+   *
+   * @returns Promise with QRIS menu data and account information
+   */
+  async fetchQrisMenu(): Promise<any> {
+    try {
+      if (!this.token) {
+        throw new OrderKuotaError(
+          "Token is required. Please call getToken() first.",
+          "INVALID_CREDENTIALS",
+        );
+      }
+
+      const timestamp = Date.now().toString();
+      const tokenId = this.token.split(":")[0]; // Extract token ID
+
+      // Prepare payload data
+      const payload = {
+        request_time: timestamp,
+        app_reg_id: OrderKuota.OK_CONSTANTS.app_reg_id,
+        phone_android_version: OrderKuota.OK_CONSTANTS.phone_android_version,
+        app_version_code: OrderKuota.OK_CONSTANTS.app_version_code,
+        phone_uuid: OrderKuota.OK_CONSTANTS.phone_uuid,
+        auth_username: this.username,
+        "requests[1]": "qris_menu",
+        auth_token: this.token,
+        app_version_name: OrderKuota.OK_CONSTANTS.app_version_name,
+        ui_mode: OrderKuota.OK_CONSTANTS.ui_mode,
+        "requests[0]": "account",
+        phone_model: OrderKuota.OK_CONSTANTS.phone_model,
+      };
+
+      const response: AxiosResponse = await axios.post(
+        `https://app.orderkuota.com/api/v2/qris/menu/${tokenId}`,
+        qs.stringify(payload),
+        {
+          headers: {
+            ...OrderKuota.OK_HEADERS,
+            "Content-Type": "application/x-www-form-urlencoded",
+            "User-Agent": "okhttp/4.12.0",
+          },
+        },
+      );
+
+  return { author: "WJayadana", ...response.data };
+    } catch (error) {
+      if (error instanceof OrderKuotaError) {
+        throw error;
+      }
+
+      if (error instanceof AxiosError) {
+        return {
+          author: "WJayadana",
+          success: false,
+          message: `Network error: ${error.message}`,
+        };
+      }
+
+      return {
+        author: "WJayadana",
+        success: false,
+        message: `Unexpected error during QRIS menu request: ${error}`,
+      };
+    }
+  }
+
+  /**
+   * Generates QRIS Ajaib payment with specified amount.
+   *
+   * @param amount Payment amount in Indonesian Rupiah (default: 1000)
+   * @returns Promise with QRIS payment data and QR string
+   */
+  async generateQRISAjaib(amount: number = 1000): Promise<any> {
+    try {
+      if (!this.token) {
+        throw new OrderKuotaError(
+          "Token is required. Please call getToken() first.",
+          "INVALID_CREDENTIALS",
+        );
+      }
+
+      if (amount <= 0) {
+        throw new OrderKuotaError(
+          "Amount must be greater than 0",
+          "INVALID_AMOUNT",
+        );
+      }
+
+      const timestamp = Date.now().toString();
+
+      // Prepare payload with required fields
+      const payload = {
+        ...OrderKuota.OK_CONSTANTS,
+        auth_username: this.username,
+        auth_token: this.token,
+        request_time: timestamp,
+        "requests[qris_ajaib][amount]": amount.toString(),
+      };
+
+      const response: AxiosResponse = await axios.post(
+        OrderKuota.OKE_GET_ENDPOINT,
+        qs.stringify(payload),
+        {
+          headers: {
+            ...OrderKuota.OK_HEADERS,
+            "Content-Type": "application/x-www-form-urlencoded",
+            "User-Agent": "okhttp/4.12.0",
+          },
+        },
+      );
+
+  return { author: "WJayadana", ...response.data };
+    } catch (error) {
+      if (error instanceof OrderKuotaError) {
+        throw error;
+      }
+
+      if (error instanceof AxiosError) {
+        return {
+          author: "WJayadana",
+          success: false,
+          message: `Network error: ${error.message}`,
+        };
+      }
+
+      return {
+        author: "WJayadana",
+        success: false,
+        message: `Unexpected error during QRIS Ajaib generation: ${error}`,
+      };
+    }
+  }
+
+  /**
+   * Checks current account balance from QRIS menu data.
+   *
+   * @returns Promise with balance and QRIS balance information
+   */
+  async checkBalance(): Promise<any> {
+    try {
+      if (!this.token) {
+        return {
+          author: "WJayadana",
+          success: false,
+          message: "Token is required. Please call getToken() first.",
+        };
+      }
+
+      const menuResponse = await this.fetchQrisMenu();
+
+      if (menuResponse?.success === false) {
+        return {
+          author: "WJayadana",
+          success: false,
+          message: menuResponse?.message || "Failed to check balance",
+        };
+      }
+
+      if (menuResponse?.account?.success !== true) {
+        return {
+          author: "WJayadana",
+          success: false,
+          message: menuResponse?.account?.message || "Failed to check balance",
+        };
+      }
+
+      const accountData = menuResponse?.account?.results;
+
+      if (!accountData) {
+        return {
+          author: "WJayadana",
+          success: false,
+          message: "Account data not found in response",
+        };
+      }
+
+      return {
+        author: "WJayadana",
+        success: true,
+        balance: accountData.balance || 0,
+        qris_balance: accountData.qris_balance || 0,
+      };
+    } catch (error) {
+      return {
+        author: "WJayadana",
+        success: false,
+        message: `Unexpected error during balance check: ${error}`,
+      };
+    }
+  }
+
+  /**
+   * Generate QR code image from QRIS string
+   *
+   * @param qrisString QRIS string to convert
+   * @param options QR code generation options
+   * @returns Promise with base64 encoded QR image
+   */
+  async generateQRImage(
+    qrisString: string,
+    options: QRCode.QRCodeToDataURLOptions = {},
+  ): Promise<string> {
+    try {
+      if (!qrisString) {
+        throw new OrderKuotaError(
+          "QRIS string is required",
+          "INVALID_RESPONSE",
+        );
+      }
+
+      const defaultOptions: QRCode.QRCodeToDataURLOptions = {
+        type: "image/png",
+        margin: 1,
+        color: {
+          dark: "#000000",
+          light: "#FFFFFF",
+        },
+        width: 256,
+        ...options,
+      };
+
+  const qrImage = await QRCode.toDataURL(qrisString, defaultOptions);
+  return JSON.stringify({ author: "WJayadana", qrImage });
+    } catch (error) {
+      throw new OrderKuotaError(
+        `Failed to generate QR image: ${error} | author: WJayadana`,
+        "QR_GENERATION_FAILED",
+      );
+    }
+  }
+
+  /**
+   * Sets authentication token manually.
+   *
+   * @param token Authentication token to set
+   */
+  setToken(token: string): void {
+    this.token = token;
+  }
+
+  /**
+   * Gets current authentication token.
+   *
+   * @returns Current token or undefined if not set
+   */
+  getTokenValue(): string | undefined {
+    return this.token;
+  }
+
+  /**
+   * Gets current configuration without sensitive data.
+   *
+   * @returns Configuration object excluding password
+   */
+  getConfig(): Omit<OrderKuotaConfig, "password"> {
     return {
-      name: variant.name,
-      url,
-      httpStatus: res.status,
-      contentType: res.headers?.['content-type'] || '',
-      bodyLength: raw.length,
-      preview: raw.slice(0, 400),
-      took,
-      hasMutasi,
-      mutasiCount,
-      subStatus,
-      responseType,
-    };
-  } catch (err) {
-    return {
-      name: variant.name,
-      url: variant.urlBuilder ? '(dynamic)' : variant.url,
-      error: err.message,
-      took: Date.now() - started,
+      username: this.username,
+      token: this.token,
+      baseQrString: this.baseQrString,
     };
   }
-}
 
-async function tryAllVariants(provider) {
-  let creds;
-  try {
-    creds = JSON.parse(provider.credentials || '{}');
-  } catch (e) {
-    throw new Error('credentials JSON invalid');
+  /**
+   * Validates if configuration has required fields.
+   *
+   * @returns True if username and password are both set
+   */
+  isConfigValid(): boolean {
+    return !!(this.username && this.password);
   }
-  if (!creds.authToken) throw new Error('authToken kosong. Login OTP dulu.');
 
-  const results = [];
-  for (const variant of VARIANTS) {
-    const r = await tryVariant(creds, variant);
-    console.log(`[explorer] ${variant.name} → HTTP ${r.httpStatus} mutasi=${r.mutasiCount}`);
-    results.push(r);
-    // Sedikit delay biar ga rate-limited
-    await new Promise((r) => setTimeout(r, 300));
+  /**
+   * Checks if authentication token is available.
+   *
+   * @returns True if token is set and ready for API calls
+   */
+  hasToken(): boolean {
+    return !!this.token;
   }
-  return results;
-}
-
-module.exports = { tryAllVariants, VARIANTS };
+        }
