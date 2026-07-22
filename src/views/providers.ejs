@@ -19,11 +19,12 @@
           <div>
             <label class="block mb-1">Type</label>
             <select name="type" id="typeSelect" class="w-full border rounded px-3 py-2">
-              <option value="zeppelin_orderkuota">🚀 Zeppelin OrderKuota (per-invoice tracking, no race — RECOMMENDED)</option>
-              <option value="orderkuota_balance">OrderKuota Balance-Delta (fallback: cek delta saldo)</option>
-              <option value="okeconnect_h2h">OkConnect H2H API (legacy, mungkin ga works)</option>
-              <option value="orderkuota">OrderKuota (login pakai OTP - kena block versi)</option>
-              <option value="okeconnect">OkConnect (scrape pakai session cookie)</option>
+              <option value="orderkuota_jywa">⭐ OrderKuota Jywa-flavor (/qris/mutasi endpoint — COBA INI DULU)</option>
+              <option value="zeppelin_orderkuota">Zeppelin OrderKuota (per-invoice tracking via 3rd party)</option>
+              <option value="orderkuota_balance">OrderKuota Balance-Delta (works, saldo delta)</option>
+              <option value="okeconnect_h2h">OkConnect H2H API (legacy)</option>
+              <option value="orderkuota">OrderKuota (mobile API - kena block versi)</option>
+              <option value="okeconnect">OkConnect (scrape session cookie)</option>
               <option value="dana_bisnis">DANA Bisnis</option>
             </select>
           </div>
@@ -119,6 +120,17 @@
 
   <script>
     const templates = {
+      orderkuota_jywa: JSON.stringify({
+        username: "xxdonn",
+        authUsername: "xxdonn",
+        authToken: "2447815:AUTH_TOKEN_HASIL_LOGIN_OTP",
+        appRegId: "e5aCENGrQOWvhQWYnv-uNc:APA91bFj3O_mv5Nf_2SM4Duz4Z8Ug3nBNaHlgodlY92CBuNIA9xmc0Dahev5xxqssPmnTdcie4mlhiG9ZAE1iCe1QbyhxcUyGXlenJxiUaXdfm1rklOEo9k",
+        phoneUuid: "e5aCENGrQOWvhQWYnv-uNc",
+        phoneModel: "sdk_gphone64_x86_64",
+        phoneAndroidVersion: "16",
+        appVersionCode: "250811",
+        appVersionName: "25.08.11"
+      }, null, 2),
       zeppelin_orderkuota: JSON.stringify({
         authUsername: "USERNAME_ORDERKUOTA_KAMU",
         authToken: "GET_DARI_https://zeppelin-api.vercel.app/get-auth",
@@ -172,9 +184,9 @@
 
     function toggleOkuPanel() {
       const type = document.getElementById('typeSelect').value;
-      // OTP panel muncul untuk kedua orderkuota adapter (mobile API & balance-delta).
+      // OTP panel muncul untuk semua orderkuota-based adapter
       document.getElementById('okuLoginPanel').style.display =
-        (type === 'orderkuota' || type === 'orderkuota_balance') ? 'block' : 'none';
+        (type === 'orderkuota' || type === 'orderkuota_balance' || type === 'orderkuota_jywa') ? 'block' : 'none';
     }
 
     document.getElementById('typeSelect').addEventListener('change', toggleOkuPanel);

@@ -1,20 +1,48 @@
-# Third-Party License Attribution
+# Third-Party Attribution
 
-## OrderKuota API — MIT License
-
-Node.js adapter `src/providers/orderkuota.js` merupakan **port dari PHP wrapper**:
-[tdede914-creator/orderkuota-api](https://github.com/tdede914-creator/orderkuota-api) (fork dari [yuf1dev/orderkuota-api](https://github.com/yuf1dev/orderkuota-api)).
-
-Original license text preserved below.
+Payment gateway ini menggunakan beberapa kode yang di-port/inspirasi dari
+project open source berikut. License MIT preserved.
 
 ---
 
+## 1. yuf1dev/orderkuota-api (PHP)
+
+Adapter `src/providers/orderkuota.js` (dan turunannya: `orderkuota_balance.js`)
+merupakan port ke Node.js dari:
+- Original: https://github.com/yuf1dev/orderkuota-api (Oct 2023 API compliance)
+- Fork: https://github.com/tdede914-creator/orderkuota-api (bug fixes + additions)
+- License: MIT
+
+Copyright (c) 2023 YuF1Dev  
+Copyright (c) 2026 tdede914-creator (fork with fixes)  
+Copyright (c) 2026 (this Node.js port)
+
+## 2. WJayadana/jywa-orkut (TypeScript)
+
+Adapter `src/providers/orderkuota_jywa.js` merupakan port dari:
+- Original: https://github.com/WJayadana/jywa-orkut
+- Fork: https://github.com/tdede914-creator/jywa-orkut
+- License: MIT
+- Endpoint discovery: `/api/v2/qris/mutasi/{tokenId}` + full payload fields
+
+Copyright (c) WJayadana  
+Copyright (c) 2026 tdede914-creator (fork)  
+Copyright (c) 2026 (Node.js port with adapter interface)
+
+## 3. Zeppelin OrderKuota
+
+Adapter `src/providers/zeppelin_orderkuota.js` merupakan client untuk service:
+- Service: https://zeppelin-api.vercel.app (middleware pihak ketiga)
+- Repo client reference: https://github.com/tdede914-creator/zeppelin-orderkuota
+
+Bukan port kode Zeppelin server itu sendiri (yang proprietary). Kita cuma
+consume API mereka.
+
+---
+
+## MIT License (full text)
+
 ```
-MIT License
-
-Copyright (c) 2023 YuF1Dev
-Copyright (c) 2026 tdede914-creator (fork with bug fixes and additions)
-
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
 in the Software without restriction, including without limitation the rights
@@ -27,24 +55,5 @@ copies or substantial portions of the Software.
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
 ```
-
----
-
-## Ubahan pada port Node.js
-
-Struktur & flow sesuai PHP asli. Endpoint, headers, dan payload format identik
-supaya kompatibel dengan OrderKuota API. Perbedaan yang diperkenalkan:
-
-- Ganti `curl` (PHP) → `axios` (Node.js).
-- Ganti class-based → module.exports (functional).
-- Tambah `testConnection()` untuk feedback UI dashboard.
-- Tambah `normalize()` untuk konversi response ke format `{ externalId, amount,
-  occurredAt, raw }` yang seragam dengan adapter lain (OkConnect, DANA Bisnis).
-- Verbose logging via `console.log` untuk debugging.
-- Handle HTTP 469 dengan pesan spesifik.
