@@ -3,19 +3,25 @@
 <head><%- include('partials/head', { title: 'API Keys' }) %></head>
 <body class="bg-slate-100 min-h-screen">
   <%- include('partials/nav') %>
-  <main class="max-w-6xl mx-auto p-6 space-y-4">
+  <main class="max-w-6xl mx-auto p-6 space-y-6">
     <h1 class="text-2xl font-bold">API Keys</h1>
     <% if (flash) { %><div class="bg-amber-100 text-amber-800 px-3 py-2 rounded text-sm"><%= flash %></div><% } %>
 
     <form method="POST" action="/apikeys" class="bg-white p-4 rounded-lg shadow-sm flex gap-2 text-sm">
-      <input name="label" placeholder="Label, mis. app-produksi" class="border rounded px-3 py-2 flex-1" required />
+      <input name="label" placeholder="Label, mis. bot-telegram-prod" class="border rounded px-3 py-2 flex-1" required />
       <button class="bg-slate-900 text-white px-4 py-2 rounded">Buat API Key</button>
     </form>
 
     <div class="bg-white rounded-lg shadow-sm overflow-hidden">
       <table class="w-full text-sm">
         <thead class="bg-slate-50 text-slate-500">
-          <tr><th class="text-left px-4 py-2">Label</th><th class="text-left px-4 py-2">Public Key</th><th class="text-left px-4 py-2">Secret</th><th class="text-left px-4 py-2">Status</th><th class="text-left px-4 py-2"></th></tr>
+          <tr>
+            <th class="text-left px-4 py-2">Label</th>
+            <th class="text-left px-4 py-2">Public Key</th>
+            <th class="text-left px-4 py-2">Secret</th>
+            <th class="text-left px-4 py-2">Status</th>
+            <th class="text-left px-4 py-2"></th>
+          </tr>
         </thead>
         <tbody>
           <% keys.forEach(function(k) { %>
@@ -36,7 +42,398 @@
         </tbody>
       </table>
     </div>
-    <p class="text-xs text-slate-500">Pakai <code>X-API-Key: pk_...</code> di header saat memanggil <code>/api/v1/*</code>.</p>
+
+    <!-- =================================================================== -->
+    <!-- API DOCUMENTATION                                                    -->
+    <!-- =================================================================== -->
+    <section class="bg-white rounded-lg shadow-sm p-6 space-y-6" id="docs">
+      <div class="flex items-start justify-between gap-4">
+        <div>
+          <h2 class="text-xl font-bold">📖 API Documentation</h2>
+          <p class="text-sm text-slate-500 mt-1">Semua yang perlu untuk integrasi ke bot Telegram / aplikasi kamu.</p>
+        </div>
+        <div class="text-xs bg-slate-100 rounded px-3 py-2 font-mono">
+          Base URL:<br />
+          <span class="text-slate-800" id="baseUrlDisplay"><%= baseUrl %></span>
+        </div>
+      </div>
+
+      <!-- ============ Auth ============ -->
+      <div>
+        <h3 class="font-semibold text-slate-800">1. Authentication</h3>
+        <p class="text-sm text-slate-600 mt-1">
+          Setiap request ke <code class="bg-slate-100 px-1 rounded">/api/v1/*</code> wajib
+          menyertakan header <code class="bg-slate-100 px-1 rounded">X-API-Key</code>
+          berisi <em>public key</em>-mu (yang diawali <code>pk_</code>).
+        </p>
+        <pre class="bg-slate-900 text-slate-100 p-3 rounded text-xs mt-2 overflow-x-auto"><code>X-API-Key: pk_xxxxxxxxxxxxxxxxxxxx</code></pre>
+        <p class="text-xs text-slate-500 mt-1">
+          <em>Secret key</em> (yang diawali <code>sk_</code>) TIDAK digunakan di request —
+          dia dipakai server untuk sign webhook (HMAC-SHA256) sehingga bot kamu
+          bisa verify webhook itu asli dari PG ini.
+        </p>
+      </div>
+
+      <!-- ============ Endpoints ============ -->
+      <div>
+        <h3 class="font-semibold text-slate-800">2. Endpoints</h3>
+        <div class="mt-3 space-y-4 text-sm">
+
+          <!-- Create invoice -->
+          <div class="border rounded-lg overflow-hidden">
+            <div class="bg-emerald-600 text-white px-3 py-2 flex items-center gap-2 text-xs font-mono">
+              <span class="bg-emerald-800 rounded px-2 py-0.5">POST</span>
+              <span>/api/v1/invoices</span>
+              <span class="ml-auto text-emerald-100">Buat invoice baru</span>
+            </div>
+            <div class="p-3 space-y-2">
+              <div>
+                <div class="text-xs font-semibold text-slate-500 mb-1">Request body (JSON)</div>
+<pre class="bg-slate-900 text-slate-100 p-3 rounded text-xs overflow-x-auto"><code>{
+  "amount": 1000,                          // WAJIB. Integer rupiah, tanpa unique code.
+  "merchant_ref": "ORDER-42",              // OPSIONAL. ID transaksi di sistemmu.
+  "description": "Beli topup 1rb",         // OPSIONAL.
+  "callback_url": "https://mybot/hook",    // OPSIONAL. Webhook saat invoice PAID.
+  "provider_id": 1                         // OPSIONAL. Default: provider aktif pertama.
+}</code></pre>
+              </div>
+              <div>
+                <div class="text-xs font-semibold text-slate-500 mb-1">Response 200 OK</div>
+<pre class="bg-slate-900 text-slate-100 p-3 rounded text-xs overflow-x-auto"><code>{
+  "reference":    "INV-XXXXXXXXXX",          // ID public. Simpan ini!
+  "merchant_ref": "ORDER-42",
+  "amount":       1000,                      // Nominal asli
+  "unique_code":  342,                       // 1-999, ditambahkan biar unique
+  "total_amount": 1342,                      // Nominal YANG HARUS DIBAYAR
+  "status":       "PENDING",
+  "qris_string":  "00020101021226...",       // Bisa di-render sendiri jadi QR
+  "qris_image":   "data:image/png;base64,...", // PNG siap pakai
+  "expired_at":   "2026-07-23T05:00:00.000Z",
+  "pay_url":      "<%= baseUrl %>/pay/INV-XXXXXXXXXX"
+}</code></pre>
+              </div>
+              <div class="text-xs text-slate-500">
+                💡 Bot Telegram tinggal ambil <code>qris_image</code> (data URL base64),
+                decode ke bytes, terus kirim pakai <code>sendPhoto</code>. Atau kirim
+                <code>pay_url</code> supaya user buka di browser & scan QR di halaman itu.
+              </div>
+            </div>
+          </div>
+
+          <!-- Get invoice -->
+          <div class="border rounded-lg overflow-hidden">
+            <div class="bg-sky-600 text-white px-3 py-2 flex items-center gap-2 text-xs font-mono">
+              <span class="bg-sky-800 rounded px-2 py-0.5">GET</span>
+              <span>/api/v1/invoices/:reference</span>
+              <span class="ml-auto text-sky-100">Cek status invoice</span>
+            </div>
+            <div class="p-3 space-y-2">
+              <div>
+                <div class="text-xs font-semibold text-slate-500 mb-1">Response 200 OK</div>
+<pre class="bg-slate-900 text-slate-100 p-3 rounded text-xs overflow-x-auto"><code>{
+  "reference":    "INV-XXXXXXXXXX",
+  "merchant_ref": "ORDER-42",
+  "amount":       1000,
+  "unique_code":  342,
+  "total_amount": 1342,
+  "status":       "PAID",                    // PENDING | PAID | EXPIRED | CANCELLED
+  "paid_at":      "2026-07-23T04:05:12.000Z",
+  "expired_at":   "2026-07-23T05:00:00.000Z",
+  "pay_url":      "<%= baseUrl %>/pay/INV-XXXXXXXXXX"
+}</code></pre>
+              </div>
+              <div class="text-xs text-slate-500">
+                Bot bisa poll endpoint ini tiap 3-5 detik sampai status berubah ke
+                <code>PAID</code> / <code>EXPIRED</code> / <code>CANCELLED</code>.
+                Alternatif lebih hemat: pakai webhook <code>callback_url</code>.
+              </div>
+            </div>
+          </div>
+
+          <!-- Cancel invoice -->
+          <div class="border rounded-lg overflow-hidden">
+            <div class="bg-rose-600 text-white px-3 py-2 flex items-center gap-2 text-xs font-mono">
+              <span class="bg-rose-800 rounded px-2 py-0.5">POST</span>
+              <span>/api/v1/invoices/:reference/cancel</span>
+              <span class="ml-auto text-rose-100">Batalkan invoice PENDING</span>
+            </div>
+            <div class="p-3 space-y-2">
+<pre class="bg-slate-900 text-slate-100 p-3 rounded text-xs overflow-x-auto"><code>{ "ok": true }</code></pre>
+              <div class="text-xs text-slate-500">Cuma bisa cancel invoice yang statusnya masih <code>PENDING</code>.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============ Webhook ============ -->
+      <div>
+        <h3 class="font-semibold text-slate-800">3. Webhook (opsional tapi direkomendasikan)</h3>
+        <p class="text-sm text-slate-600 mt-1">
+          Kalau kamu isi <code>callback_url</code> waktu bikin invoice, PG akan
+          POST payload berikut ke URL itu <strong>begitu invoice jadi PAID</strong>.
+          Retry 3× dengan jeda 2 detik kalau responsemu non-2xx.
+        </p>
+<pre class="bg-slate-900 text-slate-100 p-3 rounded text-xs mt-2 overflow-x-auto"><code>Headers:
+  Content-Type: application/json
+  X-Event:      invoice.paid
+  X-Signature:  HMAC-SHA256(rawBody, apiKey.secret)   // hex-encoded
+
+Body:
+{
+  "event":        "invoice.paid",
+  "reference":    "INV-XXXXXXXXXX",
+  "merchantRef":  "ORDER-42",
+  "amount":       1000,
+  "uniqueCode":   342,
+  "totalAmount":  1342,
+  "status":       "PAID",
+  "paidAt":       "2026-07-23T04:05:12.000Z",
+  "providerType": "orderkuota_jywa"
+}</code></pre>
+        <p class="text-xs text-slate-500 mt-2">
+          Verify di sisi bot (Python):
+        </p>
+<pre class="bg-slate-900 text-slate-100 p-3 rounded text-xs mt-1 overflow-x-auto"><code>import hmac, hashlib
+expected = hmac.new(SECRET.encode(), raw_body, hashlib.sha256).hexdigest()
+if expected != request.headers.get("X-Signature"):
+    return 401</code></pre>
+      </div>
+
+      <!-- ============ Error codes ============ -->
+      <div>
+        <h3 class="font-semibold text-slate-800">4. Error responses</h3>
+        <div class="text-sm text-slate-600 mt-1">
+          <table class="w-full text-xs mt-2">
+            <thead class="text-slate-500">
+              <tr class="border-b">
+                <th class="text-left py-1 pr-3">HTTP</th>
+                <th class="text-left py-1 pr-3">error</th>
+                <th class="text-left py-1">Kenapa</th>
+              </tr>
+            </thead>
+            <tbody class="font-mono">
+              <tr class="border-b"><td class="py-1 pr-3">401</td><td class="pr-3">missing_api_key / invalid_api_key</td><td class="font-sans">Header X-API-Key salah/kosong/nonaktif.</td></tr>
+              <tr class="border-b"><td class="py-1 pr-3">400</td><td class="pr-3">bad_request</td><td class="font-sans">amount tidak valid, atau body JSON salah.</td></tr>
+              <tr class="border-b"><td class="py-1 pr-3">400</td><td class="pr-3">no_active_provider</td><td class="font-sans">Belum ada Provider aktif di dashboard.</td></tr>
+              <tr class="border-b"><td class="py-1 pr-3">404</td><td class="pr-3">not_found</td><td class="font-sans">Reference invoice tidak ditemukan.</td></tr>
+              <tr class="border-b"><td class="py-1 pr-3">403</td><td class="pr-3">forbidden</td><td class="font-sans">API key ini bukan pemilik invoice tsb.</td></tr>
+              <tr><td class="py-1 pr-3">400</td><td class="pr-3">invalid_state</td><td class="font-sans">Cancel dipanggil ke invoice non-PENDING.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ============ Code examples ============ -->
+      <div>
+        <h3 class="font-semibold text-slate-800">5. Contoh Kode</h3>
+
+        <!-- Language tabs -->
+        <div class="mt-3 border-b flex gap-1 text-xs">
+          <button data-tab="curl" class="tab-btn px-3 py-2 border-b-2 border-slate-900 font-semibold">cURL</button>
+          <button data-tab="python" class="tab-btn px-3 py-2 border-b-2 border-transparent text-slate-500 hover:text-slate-900">Python (requests)</button>
+          <button data-tab="pyTelegramBot" class="tab-btn px-3 py-2 border-b-2 border-transparent text-slate-500 hover:text-slate-900">🤖 Bot Telegram (Python)</button>
+          <button data-tab="node" class="tab-btn px-3 py-2 border-b-2 border-transparent text-slate-500 hover:text-slate-900">Node.js (axios)</button>
+        </div>
+
+        <!-- cURL -->
+        <div class="tab-panel" data-tab="curl">
+          <div class="text-xs text-slate-500 mt-3 mb-1">Buat invoice</div>
+<pre class="bg-slate-900 text-slate-100 p-3 rounded text-xs overflow-x-auto"><code>curl -X POST <%= baseUrl %>/api/v1/invoices \
+  -H "X-API-Key: pk_YOUR_KEY_HERE" \
+  -H "Content-Type: application/json" \
+  -d '{"amount": 1000, "merchant_ref": "ORDER-42", "description": "Test"}'</code></pre>
+          <div class="text-xs text-slate-500 mt-3 mb-1">Cek status</div>
+<pre class="bg-slate-900 text-slate-100 p-3 rounded text-xs overflow-x-auto"><code>curl <%= baseUrl %>/api/v1/invoices/INV-XXXXXXXXXX \
+  -H "X-API-Key: pk_YOUR_KEY_HERE"</code></pre>
+          <div class="text-xs text-slate-500 mt-3 mb-1">Cancel</div>
+<pre class="bg-slate-900 text-slate-100 p-3 rounded text-xs overflow-x-auto"><code>curl -X POST <%= baseUrl %>/api/v1/invoices/INV-XXXXXXXXXX/cancel \
+  -H "X-API-Key: pk_YOUR_KEY_HERE"</code></pre>
+        </div>
+
+        <!-- Python -->
+        <div class="tab-panel hidden" data-tab="python">
+<pre class="bg-slate-900 text-slate-100 p-3 rounded text-xs mt-3 overflow-x-auto"><code>import requests
+
+BASE = "<%= baseUrl %>"
+KEY  = "pk_YOUR_KEY_HERE"
+H    = {"X-API-Key": KEY, "Content-Type": "application/json"}
+
+# 1. Buat invoice
+r = requests.post(f"{BASE}/api/v1/invoices", headers=H, json={
+    "amount":       1000,
+    "merchant_ref": "ORDER-42",
+    "description":  "Test dari Python",
+})
+r.raise_for_status()
+inv = r.json()
+print("Reference:", inv["reference"])
+print("Bayar Rp", inv["total_amount"])
+print("Pay URL :", inv["pay_url"])
+
+# 2. Simpan QRIS jadi file PNG
+import base64
+png_b64 = inv["qris_image"].split(",", 1)[1]
+with open("qris.png", "wb") as f:
+    f.write(base64.b64decode(png_b64))
+
+# 3. Poll status tiap 3 detik sampai PAID atau EXPIRED
+import time
+while True:
+    s = requests.get(f"{BASE}/api/v1/invoices/{inv['reference']}", headers=H).json()
+    print("Status:", s["status"])
+    if s["status"] in ("PAID", "EXPIRED", "CANCELLED"):
+        break
+    time.sleep(3)</code></pre>
+        </div>
+
+        <!-- Python Telegram Bot -->
+        <div class="tab-panel hidden" data-tab="pyTelegramBot">
+          <p class="text-xs text-slate-500 mt-3">Contoh minimal pakai
+            <a class="text-blue-600 hover:underline" href="https://github.com/python-telegram-bot/python-telegram-bot" target="_blank">python-telegram-bot</a>
+            v20+. User kirim <code>/buy 1000</code>, bot bikin invoice, kirim gambar
+            QRIS, dan auto-notify pas dibayar.
+          </p>
+<pre class="bg-slate-900 text-slate-100 p-3 rounded text-xs mt-2 overflow-x-auto"><code>import asyncio, base64, io, requests
+from telegram import Update, InputFile
+from telegram.ext import Application, CommandHandler, ContextTypes
+
+PG_BASE    = "<%= baseUrl %>"
+PG_API_KEY = "pk_YOUR_KEY_HERE"
+BOT_TOKEN  = "1234567:AAxxxx"        # dari @BotFather
+
+def create_invoice(amount: int, chat_id: int) -> dict:
+    r = requests.post(
+        f"{PG_BASE}/api/v1/invoices",
+        headers={"X-API-Key": PG_API_KEY, "Content-Type": "application/json"},
+        json={
+            "amount":       amount,
+            "merchant_ref": f"TG-{chat_id}",
+            "description":  f"Order dari Telegram chat {chat_id}",
+        },
+        timeout=15,
+    )
+    r.raise_for_status()
+    return r.json()
+
+async def buy(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    if not ctx.args:
+        return await update.message.reply_text("Usage: /buy &lt;amount&gt;")
+    amount   = int(ctx.args[0])
+    chat_id  = update.effective_chat.id
+    inv      = create_invoice(amount, chat_id)
+
+    # decode qris_image (data:image/png;base64,...) → bytes → kirim sebagai foto
+    png = base64.b64decode(inv["qris_image"].split(",", 1)[1])
+    caption = (
+        f"💰 Bayar sebesar *Rp {inv['total_amount']:,}*\n"
+        f"Reference: `{inv['reference']}`\n"
+        f"Expired: {inv['expired_at']}"
+    )
+    await update.message.reply_photo(
+        photo=InputFile(io.BytesIO(png), filename="qris.png"),
+        caption=caption,
+        parse_mode="Markdown",
+    )
+
+    # background task: poll status sampai PAID/EXPIRED, kirim notif ke user
+    asyncio.create_task(watch_invoice(ctx, chat_id, inv["reference"]))
+
+async def watch_invoice(ctx, chat_id, reference):
+    for _ in range(300):                     # max ~15 menit @3s = 300 tries
+        await asyncio.sleep(3)
+        r = requests.get(
+            f"{PG_BASE}/api/v1/invoices/{reference}",
+            headers={"X-API-Key": PG_API_KEY},
+            timeout=10,
+        )
+        s = r.json()
+        if s["status"] == "PAID":
+            await ctx.bot.send_message(chat_id, f"✅ Pembayaran {reference} DITERIMA!")
+            return
+        if s["status"] in ("EXPIRED", "CANCELLED"):
+            await ctx.bot.send_message(chat_id, f"❌ Invoice {reference} {s['status']}")
+            return
+
+app = Application.builder().token(BOT_TOKEN).build()
+app.add_handler(CommandHandler("buy", buy))
+app.run_polling()</code></pre>
+          <p class="text-xs text-slate-500 mt-2">
+            Untuk skala lebih besar, ganti polling dengan webhook: server bot
+            terima POST di <code>callback_url</code>, verify <code>X-Signature</code>,
+            terus kirim notif ke user.
+          </p>
+        </div>
+
+        <!-- Node.js -->
+        <div class="tab-panel hidden" data-tab="node">
+<pre class="bg-slate-900 text-slate-100 p-3 rounded text-xs mt-3 overflow-x-auto"><code>const axios = require('axios');
+
+const pg = axios.create({
+  baseURL: '<%= baseUrl %>/api/v1',
+  headers: { 'X-API-Key': 'pk_YOUR_KEY_HERE' },
+});
+
+async function main() {
+  // 1. Buat invoice
+  const { data: inv } = await pg.post('/invoices', {
+    amount:       1000,
+    merchant_ref: 'ORDER-42',
+    description:  'Test dari Node.js',
+  });
+  console.log('Reference:', inv.reference);
+  console.log('Bayar Rp', inv.total_amount);
+  console.log('Pay URL :', inv.pay_url);
+
+  // 2. Poll status tiap 3 detik
+  while (true) {
+    await new Promise((r) => setTimeout(r, 3000));
+    const { data: s } = await pg.get(`/invoices/${inv.reference}`);
+    console.log('Status:', s.status);
+    if (['PAID', 'EXPIRED', 'CANCELLED'].includes(s.status)) break;
+  }
+}
+
+main().catch(console.error);</code></pre>
+        </div>
+      </div>
+
+      <!-- ============ Notes ============ -->
+      <div class="bg-blue-50 border border-blue-200 rounded p-3 text-xs text-slate-700">
+        <div class="font-semibold text-blue-900 mb-1">💡 Tips</div>
+        <ul class="list-disc pl-5 space-y-1">
+          <li>User membayar <strong>total_amount</strong>, bukan <strong>amount</strong>.
+            Selisihnya (<code>unique_code</code> 1-999) adalah trik untuk
+            membedakan invoice yang nominal aslinya sama.</li>
+          <li>Poller di server jalan setiap ~10 detik untuk cek mutasi masuk.
+            Setelah pembayaran diterima OK, invoice paling lama 10 detik
+            berubah ke PAID.</li>
+          <li>Kalau bikin banyak invoice dengan <code>amount</code> yang sama
+            dalam waktu bersamaan, pool <code>unique_code</code> bisa habis
+            (max 999). Bikin invoice bertahap atau varietasikan amount-nya.</li>
+          <li>Invoice default expire dalam 15 menit (bisa diubah lewat
+            <code>INVOICE_EXPIRE_MINUTES</code> di <code>.env</code>).</li>
+        </ul>
+      </div>
+    </section>
   </main>
+
+  <script>
+    // Tab switcher untuk contoh kode
+    document.querySelectorAll('.tab-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const t = btn.dataset.tab;
+        document.querySelectorAll('.tab-btn').forEach((b) => {
+          const active = b.dataset.tab === t;
+          b.classList.toggle('border-slate-900', active);
+          b.classList.toggle('font-semibold', active);
+          b.classList.toggle('border-transparent', !active);
+          b.classList.toggle('text-slate-500', !active);
+        });
+        document.querySelectorAll('.tab-panel').forEach((p) => {
+          p.classList.toggle('hidden', p.dataset.tab !== t);
+        });
+      });
+    });
+  </script>
 </body>
 </html>
