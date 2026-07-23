@@ -100,22 +100,38 @@
               <div>
                 <div class="text-xs font-semibold text-slate-500 mb-1">Response 200 OK</div>
 <pre class="bg-slate-900 text-slate-100 p-3 rounded text-xs overflow-x-auto"><code>{
-  "reference":    "INV-XXXXXXXXXX",          // ID public. Simpan ini!
-  "merchant_ref": "ORDER-42",
-  "amount":       1000,                      // Nominal asli
-  "unique_code":  342,                       // 1-999, ditambahkan biar unique
-  "total_amount": 1342,                      // Nominal YANG HARUS DIBAYAR
-  "status":       "PENDING",
-  "qris_string":  "00020101021226...",       // Bisa di-render sendiri jadi QR
-  "qris_image":   "data:image/png;base64,...", // PNG siap pakai
-  "expired_at":   "2026-07-23T05:00:00.000Z",
-  "pay_url":      "<%= baseUrl %>/pay/INV-XXXXXXXXXX"
+  "reference":         "INV-XXXXXXXXXX",     // ID public. Simpan ini!
+  "merchant_ref":      "ORDER-42",
+  "amount":            1000,                 // Nominal asli
+  "unique_code":       342,                  // 1-999, ditambahkan biar unique
+  "total_amount":      1342,                 // Nominal YANG HARUS DIBAYAR
+  "status":            "PENDING",
+  "qris_string":       "00020101021226...",  // Bisa di-render sendiri jadi QR
+  "qris_image":        "data:image/png;base64,...", // PNG siap pakai
+  "expired_at":        "2026-07-23T05:00:00.000Z",
+  "pay_url":           "<%= baseUrl %>/pay/INV-XXXXXXXXXX",
+  "idempotent_replay": false                 // true = invoice existing dikembalikan
 }</code></pre>
+              </div>
+              <div class="bg-amber-50 border border-amber-200 rounded p-2 text-xs text-amber-900">
+                <div class="font-semibold mb-1">🔁 Idempotency via <code>merchant_ref</code></div>
+                Kalau kamu retry POST dengan <code>merchant_ref</code> yang SAMA
+                (mis. karena bot Telegram-mu timeout &amp; retry), request kedua
+                <strong>tidak</strong> bikin invoice baru — kita balikin invoice
+                PENDING yang sama. Header response berisi
+                <code class="bg-white px-1 rounded">X-Idempotent-Replay: true</code>
+                dan field <code>idempotent_replay: true</code>. Aman untuk
+                di-retry tanpa risiko duplikat.
+                <div class="mt-1">
+                  Kalau <code>merchant_ref</code> sama tapi <code>amount</code> beda →
+                  ditolak dengan HTTP 409 (<code>merchant_ref_conflict</code>).
+                  Cancel invoice lama dulu, atau pakai <code>merchant_ref</code> lain.
+                </div>
               </div>
               <div class="text-xs text-slate-500">
                 💡 Bot Telegram tinggal ambil <code>qris_image</code> (data URL base64),
                 decode ke bytes, terus kirim pakai <code>sendPhoto</code>. Atau kirim
-                <code>pay_url</code> supaya user buka di browser & scan QR di halaman itu.
+                <code>pay_url</code> supaya user buka di browser &amp; scan QR di halaman itu.
               </div>
             </div>
           </div>
@@ -207,14 +223,18 @@ if expected != request.headers.get("X-Signature"):
             <thead class="text-slate-500">
               <tr class="border-b">
                 <th class="text-left py-1 pr-3">HTTP</th>
-                <th class="text-left py-1 pr-3">error</th>
-                <th class="text-left py-1">Kenapa</th>
+                <th class="text-left py-1 pr-3">error code</th>
+                <th class="text-left py-1">Kenapa &amp; cara handle di bot</th>
               </tr>
             </thead>
             <tbody class="font-mono">
-              <tr class="border-b"><td class="py-1 pr-3">401</td><td class="pr-3">missing_api_key / invalid_api_key</td><td class="font-sans">Header X-API-Key salah/kosong/nonaktif.</td></tr>
-              <tr class="border-b"><td class="py-1 pr-3">400</td><td class="pr-3">bad_request</td><td class="font-sans">amount tidak valid, atau body JSON salah.</td></tr>
+              <tr class="border-b"><td class="py-1 pr-3">401</td><td class="pr-3">missing_api_key / invalid_api_key</td><td class="font-sans">Header X-API-Key salah / kosong / nonaktif.</td></tr>
+              <tr class="border-b"><td class="py-1 pr-3">400</td><td class="pr-3">invalid_amount</td><td class="font-sans">Amount bukan integer positif atau &gt; 9.999.000.</td></tr>
+              <tr class="border-b"><td class="py-1 pr-3">400</td><td class="pr-3">provider_not_found / provider_inactive</td><td class="font-sans"><code>provider_id</code> tidak ada / non-aktif.</td></tr>
               <tr class="border-b"><td class="py-1 pr-3">400</td><td class="pr-3">no_active_provider</td><td class="font-sans">Belum ada Provider aktif di dashboard.</td></tr>
+              <tr class="border-b"><td class="py-1 pr-3">400</td><td class="pr-3">bad_request</td><td class="font-sans">Body JSON invalid / field wajib kosong.</td></tr>
+              <tr class="border-b bg-amber-50"><td class="py-1 pr-3">409</td><td class="pr-3">merchant_ref_conflict</td><td class="font-sans"><code>merchant_ref</code> sudah dipakai invoice PENDING lain dengan amount berbeda. Cancel dulu / pakai ref lain.</td></tr>
+              <tr class="border-b bg-amber-50"><td class="py-1 pr-3">429</td><td class="pr-3">unique_code_pool_exhausted</td><td class="font-sans">&gt; 999 invoice PENDING dgn amount sama. Response menyertakan header <code>Retry-After: 10</code>. <strong>Bot: sleep 10 detik lalu retry</strong>, atau varietasikan amount.</td></tr>
               <tr class="border-b"><td class="py-1 pr-3">404</td><td class="pr-3">not_found</td><td class="font-sans">Reference invoice tidak ditemukan.</td></tr>
               <tr class="border-b"><td class="py-1 pr-3">403</td><td class="pr-3">forbidden</td><td class="font-sans">API key ini bukan pemilik invoice tsb.</td></tr>
               <tr><td class="py-1 pr-3">400</td><td class="pr-3">invalid_state</td><td class="font-sans">Cancel dipanggil ke invoice non-PENDING.</td></tr>
@@ -301,17 +321,25 @@ PG_BASE    = "<%= baseUrl %>"
 PG_API_KEY = "pk_YOUR_KEY_HERE"
 BOT_TOKEN  = "1234567:AAxxxx"        # dari @BotFather
 
-def create_invoice(amount: int, chat_id: int) -> dict:
+def create_invoice(amount: int, chat_id: int, order_id: str) -> dict:
+    # `merchant_ref` = idempotency key. Kalau bot sudah panggil create_invoice()
+    # untuk order_id yang sama & invoice-nya masih PENDING, PG balikin invoice
+    # existing (bukan bikin duplikat). Ideal untuk retry setelah network error.
     r = requests.post(
         f"{PG_BASE}/api/v1/invoices",
         headers={"X-API-Key": PG_API_KEY, "Content-Type": "application/json"},
         json={
             "amount":       amount,
-            "merchant_ref": f"TG-{chat_id}",
+            "merchant_ref": f"TG-{chat_id}-{order_id}",
             "description":  f"Order dari Telegram chat {chat_id}",
         },
         timeout=15,
     )
+    if r.status_code == 429:
+        # Pool unique_code habis. Sleep sesuai Retry-After, lalu retry.
+        import time
+        time.sleep(int(r.headers.get("Retry-After", "10")))
+        return create_invoice(amount, chat_id, order_id)
     r.raise_for_status()
     return r.json()
 
@@ -320,7 +348,8 @@ async def buy(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         return await update.message.reply_text("Usage: /buy &lt;amount&gt;")
     amount   = int(ctx.args[0])
     chat_id  = update.effective_chat.id
-    inv      = create_invoice(amount, chat_id)
+    order_id = str(update.message.message_id)   # unique per message
+    inv      = create_invoice(amount, chat_id, order_id)
 
     # decode qris_image (data:image/png;base64,...) → bytes → kirim sebagai foto
     png = base64.b64decode(inv["qris_image"].split(",", 1)[1])
@@ -399,19 +428,47 @@ main().catch(console.error);</code></pre>
 
       <!-- ============ Notes ============ -->
       <div class="bg-blue-50 border border-blue-200 rounded p-3 text-xs text-slate-700">
-        <div class="font-semibold text-blue-900 mb-1">💡 Tips</div>
-        <ul class="list-disc pl-5 space-y-1">
-          <li>User membayar <strong>total_amount</strong>, bukan <strong>amount</strong>.
-            Selisihnya (<code>unique_code</code> 1-999) adalah trik untuk
-            membedakan invoice yang nominal aslinya sama.</li>
-          <li>Poller di server jalan setiap ~10 detik untuk cek mutasi masuk.
-            Setelah pembayaran diterima OK, invoice paling lama 10 detik
-            berubah ke PAID.</li>
-          <li>Kalau bikin banyak invoice dengan <code>amount</code> yang sama
-            dalam waktu bersamaan, pool <code>unique_code</code> bisa habis
-            (max 999). Bikin invoice bertahap atau varietasikan amount-nya.</li>
-          <li>Invoice default expire dalam 15 menit (bisa diubah lewat
-            <code>INVOICE_EXPIRE_MINUTES</code> di <code>.env</code>).</li>
+        <div class="font-semibold text-blue-900 mb-1">💡 Konsep &amp; batasan yang perlu dipahami</div>
+        <ul class="list-disc pl-5 space-y-1.5">
+          <li><strong>Bagaimana pembayaran di-match ke invoice?</strong>
+            QRIS dari bank / OrderKuota <em>tidak</em> membawa <code>merchant_ref</code>
+            kita. Yang muncul di mutasi cuma nominal, keterangan, dan ID
+            transaksi dari sisi bank. Jadi satu-satunya cara kita bedain
+            invoice adalah <strong>lewat nominal yang unik</strong>. Karena
+            itu setiap invoice ditambahi <code>unique_code</code> 1-999
+            rupiah — user bayar <code>total_amount</code>, bukan
+            <code>amount</code>.</li>
+          <li><strong>Idempotency:</strong> kirim <code>merchant_ref</code>
+            di setiap POST invoice — retry berapa kali pun aman, tidak
+            akan bikin duplikat selama invoice yang lama masih PENDING.
+            Kalau kamu tidak kirim <code>merchant_ref</code>, setiap POST
+            akan bikin invoice baru.</li>
+          <li><strong>Race-safe:</strong> pemilihan <code>unique_code</code> +
+            insert Invoice di-serialisasi di dalam satu DB transaction.
+            Dua request POST yang masuk bersamaan dengan <code>amount</code>
+            sama dijamin tidak akan pernah dapat <code>total_amount</code>
+            yang sama.</li>
+          <li><strong>Kalau nominal &amp; kode unik sama di dua invoice
+            (skenario ekstrem):</strong> selama mekanisme di atas berjalan
+            (idempotency + transaction), <em>tidak akan terjadi</em>.
+            Andaikan tetap terjadi (bug atau bypass langsung ke DB),
+            matcher akan pilih invoice <strong>tertua yang PENDING</strong>
+            (FIFO by <code>createdAt</code>). Kita <em>tidak bisa</em> pakai
+            <code>merchant_ref</code> untuk disambiguate — field itu tidak
+            pernah sampai ke sisi bank / OK.</li>
+          <li><strong>Pool <code>unique_code</code> maksimum 999 per
+            amount.</strong> Kalau invoice PENDING dengan <code>amount</code>
+            sama sudah > 999, POST invoice ke-1000 akan return HTTP 429
+            (<code>unique_code_pool_exhausted</code>). Bot: sleep 10 detik
+            (lihat header <code>Retry-After</code>) lalu retry, atau
+            varietasikan amount (1000, 1001, 1002, ...).</li>
+          <li><strong>Poller</strong> jalan setiap ~10 detik untuk cek
+            mutasi masuk. Setelah pembayaran diterima OK, invoice paling
+            lama 10 detik berubah ke <code>PAID</code>.</li>
+          <li><strong>Invoice expire</strong> default 15 menit (ubah lewat
+            <code>INVOICE_EXPIRE_MINUTES</code> di <code>.env</code>).
+            Semakin cepat expire → pool <code>unique_code</code> berputar
+            makin cepat.</li>
         </ul>
       </div>
     </section>
