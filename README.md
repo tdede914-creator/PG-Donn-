@@ -49,8 +49,7 @@ payment-gateway/
 │   │   └── webhook.js             # Kirim webhook signed
 │   ├── providers/
 │   │   ├── index.js               # Registry
-│   │   ├── orderkuota.js          # Adapter OrderKuota
-│   │   └── danabisnis.js          # Adapter DANA Bisnis
+│   │   └── orderkuota_jywa.js     # Adapter OrderKuota (login OTP)
 │   ├── workers/poller.js          # Cron poller
 │   ├── scripts/seed.js            # Seed admin
 │   └── views/*.ejs                # Halaman EJS + Tailwind (CDN)
@@ -95,9 +94,16 @@ Buka `http://localhost:3000/login` dan login dengan kredensial dari `.env`.
 
 Setelah login, buka **Providers → Tambah**.
 
+> **Catatan versi terbaru:** adapter yang di-bundle saat ini adalah
+> **`orderkuota_jywa`** (endpoint `/qris/mutasi`). Credentials paling mudah
+> diisi lewat tombol **Login OrderKuota (OTP)** di halaman Providers — field
+> JSON di bawah akan terisi otomatis setelah verifikasi OTP. Bagian di bawah
+> ini menjelaskan struktur credentials manual untuk referensi. Adapter DANA
+> Bisnis belum tersedia di rilis ini.
+
 ### OrderKuota
 
-- **Type**: `orderkuota`
+- **Type**: `orderkuota_jywa`
 - **Static QRIS**: string QRIS statis merchant kamu (bisa didapat dari aplikasi OrderKuota atau decode gambar QR statis).
 - **Credentials (JSON)**:
 
@@ -161,6 +167,11 @@ Request:
 ```
 
 `provider_id` opsional; kalau kosong akan pakai provider aktif pertama.
+
+`merchant_ref` juga opsional. Kalau **tidak** dikirim, sistem otomatis
+membuatkan ref acak dengan format `KCS-XXXXXXXX` (angka + huruf) supaya setiap
+invoice tetap punya identifier yang rapi. Kalau kamu butuh
+[idempotency](#webhook) (retry-safe), kirim `merchant_ref` milikmu sendiri.
 
 Response:
 ```json

@@ -1,106 +1,102 @@
 <!doctype html>
-<html>
+<html lang="id">
 <head><%- include('partials/head', { title: 'Providers' }) %></head>
-<body class="bg-slate-100 min-h-screen">
+<body>
   <%- include('partials/nav') %>
-  <main class="max-w-6xl mx-auto p-6 space-y-6">
-    <h1 class="text-2xl font-bold">Providers</h1>
-    <% if (flash) { %><div class="bg-green-100 text-green-700 px-3 py-2 rounded text-sm"><%= flash %></div><% } %>
-    <% if (error) { %><div class="bg-red-100 text-red-700 px-3 py-2 rounded text-sm"><%= error %></div><% } %>
 
-    <div class="grid md:grid-cols-2 gap-6">
-      <div class="bg-white rounded-lg shadow-sm p-4">
-        <h2 class="font-semibold mb-3">Tambah Provider Baru</h2>
+  <main class="mx-auto max-w-6xl space-y-6 px-4 py-8">
+    <div>
+      <h1 class="text-2xl font-bold text-white">Providers</h1>
+      <p class="text-sm text-slate-400">Konfigurasi akun sumber mutasi QRIS (OrderKuota).</p>
+    </div>
+
+    <% if (flash) { %><div class="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-300"><%= flash %></div><% } %>
+    <% if (error) { %><div class="rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-sm text-rose-300"><%= error %></div><% } %>
+
+    <div class="grid gap-6 lg:grid-cols-2">
+      <!-- Add provider -->
+      <div class="card p-6">
+        <h2 class="mb-4 font-semibold text-white">Tambah Provider Baru</h2>
         <form id="addForm" method="POST" action="/providers" class="space-y-3 text-sm">
           <div>
-            <label class="block mb-1">Nama</label>
-            <input name="name" class="w-full border rounded px-3 py-2" placeholder="mis. OK Utama" required />
+            <label class="label">Nama</label>
+            <input name="name" class="input" placeholder="mis. OK Utama" required />
           </div>
           <div>
-            <label class="block mb-1">Type</label>
-            <select name="type" id="typeSelect" class="w-full border rounded px-3 py-2">
-              <option value="orderkuota_jywa">⭐ OrderKuota-KOBONGCLOUDSERVER (endpoint /qris/mutasi)</option>
+            <label class="label">Type</label>
+            <select name="type" id="typeSelect" class="input">
+              <option value="orderkuota_jywa">OrderKuota — KOBONGCLOUDSERVER (endpoint /qris/mutasi)</option>
             </select>
           </div>
 
-          <!-- ============= OrderKuota OTP Login Panel ============= -->
-          <div id="okuLoginPanel" class="border-2 border-blue-200 bg-blue-50 rounded p-3 space-y-2">
-            <div class="font-semibold text-blue-900 text-sm">🔐 Login OrderKuota (OTP)</div>
-            <p class="text-xs text-slate-600">
-              Isi username &amp; password OrderKuota kamu. OTP akan dikirim ke email
-              yang terdaftar di OrderKuota. Setelah verify OTP, credentials JSON di
-              bawah akan terisi otomatis.
+          <!-- OrderKuota OTP Login Panel -->
+          <div id="okuLoginPanel" class="space-y-2 rounded-xl border border-brand-400/30 bg-brand-500/5 p-3">
+            <div class="text-sm font-semibold text-brand-300">Login OrderKuota (OTP)</div>
+            <p class="text-xs text-slate-400">
+              Isi username &amp; password OrderKuota. OTP dikirim ke email terdaftar. Setelah verify OTP,
+              credentials JSON di bawah terisi otomatis.
             </p>
             <div>
-              <label class="block mb-1 text-xs">Username / No HP OrderKuota</label>
-              <input id="okuUsername" placeholder="08xxxx"
-                     class="w-full border rounded px-2 py-1 text-sm" autocomplete="off" />
+              <label class="label">Username / No HP OrderKuota</label>
+              <input id="okuUsername" placeholder="08xxxx" class="input" autocomplete="off" />
             </div>
             <div>
-              <label class="block mb-1 text-xs">Password OrderKuota</label>
-              <input id="okuPassword" type="password" placeholder="password"
-                     class="w-full border rounded px-2 py-1 text-sm" autocomplete="off" />
+              <label class="label">Password OrderKuota</label>
+              <input id="okuPassword" type="password" placeholder="password" class="input" autocomplete="off" />
             </div>
-            <button type="button" onclick="requestOtp()"
-                    class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded text-sm">
-              📧 Kirim OTP ke Email
-            </button>
+            <button type="button" onclick="requestOtp()" class="btn btn-primary">Kirim OTP ke Email</button>
 
-            <div id="okuOtpPanel" style="display:none" class="mt-2 pt-2 border-t border-blue-200">
-              <label class="block mb-1 text-xs">Kode OTP (6 digit dari email)</label>
+            <div id="okuOtpPanel" style="display:none" class="mt-2 border-t border-white/10 pt-2">
+              <label class="label">Kode OTP (6 digit dari email)</label>
               <div class="flex gap-2">
-                <input id="okuOtp" placeholder="123456" maxlength="6"
-                       class="flex-1 border rounded px-2 py-1 text-sm font-mono" />
-                <button type="button" onclick="verifyOtp()"
-                        class="bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded text-sm">
-                  ✅ Verify OTP
-                </button>
+                <input id="okuOtp" placeholder="123456" maxlength="6" class="input flex-1 font-mono" />
+                <button type="button" onclick="verifyOtp()" class="btn btn-primary">Verify OTP</button>
               </div>
             </div>
 
-            <div id="okuLoginResult" class="text-xs mt-1"></div>
+            <div id="okuLoginResult" class="mt-1 text-xs"></div>
           </div>
-          <!-- ============= end OrderKuota OTP Panel ============= -->
 
           <div>
-            <label class="block mb-1">Static QRIS String</label>
-            <textarea name="qrisStatic" class="w-full border rounded px-3 py-2 h-24 font-mono text-xs" placeholder="000201010211026..." required></textarea>
-            <p class="text-xs text-slate-500 mt-1">Ambil dari aplikasi merchant (Scan QR statik-mu → decode → paste stringnya di sini).</p>
+            <label class="label">Static QRIS String</label>
+            <textarea name="qrisStatic" class="input h-24 font-mono text-xs" placeholder="000201010211026..." required></textarea>
+            <p class="mt-1 text-xs text-slate-500">Ambil dari aplikasi merchant (scan QR statik → decode → paste stringnya).</p>
           </div>
           <div>
-            <label class="block mb-1">Credentials (JSON)</label>
-            <textarea name="credentials" id="credentialsField" class="w-full border rounded px-3 py-2 h-40 font-mono text-xs"></textarea>
-            <div class="flex gap-2 mt-1">
-              <button type="button" onclick="fillTemplate()" class="text-xs text-blue-600 hover:underline">Isi template berdasarkan Type</button>
-              <button type="button" onclick="testPreview()" class="text-xs text-amber-600 hover:underline">🔌 Test connection dulu</button>
+            <label class="label">Credentials (JSON)</label>
+            <textarea name="credentials" id="credentialsField" class="input h-40 font-mono text-xs"></textarea>
+            <div class="mt-1 flex gap-3">
+              <button type="button" onclick="fillTemplate()" class="text-xs link">Isi template berdasarkan Type</button>
+              <button type="button" onclick="testPreview()" class="text-xs text-amber-300 hover:text-amber-200">Test connection dulu</button>
             </div>
             <div id="testResult" class="mt-2 text-xs"></div>
           </div>
-          <button class="bg-slate-900 text-white px-4 py-2 rounded">Simpan</button>
+          <button class="btn btn-primary">Simpan</button>
         </form>
       </div>
 
-      <div class="bg-white rounded-lg shadow-sm p-4">
-        <h2 class="font-semibold mb-3">Provider Terdaftar</h2>
+      <!-- Registered providers -->
+      <div class="card p-6">
+        <h2 class="mb-4 font-semibold text-white">Provider Terdaftar</h2>
         <% if (!providers.length) { %>
-          <p class="text-slate-500 text-sm">Belum ada provider.</p>
+          <p class="text-sm text-slate-500">Belum ada provider.</p>
         <% } %>
         <ul class="space-y-3">
-          <% providers.forEach(function(p) { %>
-            <li class="border rounded p-3" id="prov-<%= p.id %>">
+          <% providers.forEach(function (p) { %>
+            <li class="rounded-xl border border-white/10 bg-white/[0.03] p-3" id="prov-<%= p.id %>">
               <div class="flex items-center">
                 <div>
-                  <div class="font-semibold"><%= p.name %></div>
+                  <div class="font-semibold text-white"><%= p.name %></div>
                   <div class="text-xs text-slate-500"><%= p.type %> · dibuat <%= new Date(p.createdAt).toLocaleDateString('id-ID') %></div>
                 </div>
-                <span class="ml-auto px-2 py-0.5 text-xs rounded <%= p.isActive ? 'bg-green-100 text-green-700' : 'bg-slate-200 text-slate-600' %>"><%= p.isActive ? 'AKTIF' : 'NONAKTIF' %></span>
+                <span class="badge ml-auto <%= p.isActive ? 'badge-paid' : 'badge-expired' %>"><%= p.isActive ? 'AKTIF' : 'NONAKTIF' %></span>
               </div>
-              <div class="mt-2 flex gap-2 items-center flex-wrap">
-                <button onclick="testProvider(<%= p.id %>)" class="text-xs text-amber-600 hover:text-amber-800">🔌 Test</button>
-                <button onclick="pollNow(<%= p.id %>)" class="text-xs text-blue-600 hover:text-blue-800">🔄 Poll Now (debug)</button>
-                <button onclick="editCreds(<%= p.id %>)" class="text-xs text-green-600 hover:text-green-800">✏️ Edit Credentials</button>
-                <form method="POST" action="/providers/<%= p.id %>/toggle" class="inline"><button class="text-xs text-slate-600 hover:text-slate-900">Toggle</button></form>
-                <form method="POST" action="/providers/<%= p.id %>/delete" class="inline" onsubmit="return confirm('Hapus provider ini?')"><button class="text-xs text-red-600 hover:text-red-800">Hapus</button></form>
+              <div class="mt-2 flex flex-wrap items-center gap-3">
+                <button onclick="testProvider(<%= p.id %>)" class="text-xs text-amber-300 hover:text-amber-200">Test</button>
+                <button onclick="pollNow(<%= p.id %>)" class="text-xs link">Poll Now (debug)</button>
+                <button onclick="editCreds(<%= p.id %>)" class="text-xs text-emerald-300 hover:text-emerald-200">Edit Credentials</button>
+                <form method="POST" action="/providers/<%= p.id %>/toggle" class="inline"><button class="text-xs text-slate-400 hover:text-white">Toggle</button></form>
+                <form method="POST" action="/providers/<%= p.id %>/delete" class="inline" onsubmit="return confirm('Hapus provider ini?')"><button class="text-xs text-rose-400 hover:text-rose-300">Hapus</button></form>
               </div>
               <div id="test-<%= p.id %>" class="mt-2 text-xs"></div>
               <div id="edit-<%= p.id %>" class="mt-2 text-xs" style="display:none"></div>
@@ -134,25 +130,20 @@
     function renderResult(elId, result) {
       const el = document.getElementById(elId);
       if (result.ok) {
-        el.innerHTML = '<div class="bg-green-100 text-green-700 px-2 py-1 rounded">' +
+        el.innerHTML = '<div class="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2 py-1 text-emerald-300">' +
           '✓ ' + (result.message || '') + '</div>' +
           (result.sample && result.sample.length ?
-            '<pre class="mt-1 bg-slate-50 p-2 rounded text-[10px] overflow-auto">' +
+            '<pre class="mt-1 overflow-auto rounded-lg border border-white/10 bg-ink-900/70 p-2 text-[10px] text-slate-300">' +
             JSON.stringify(result.sample, null, 2) + '</pre>' : '');
       } else {
-        el.innerHTML = '<div class="bg-red-100 text-red-700 px-2 py-1 rounded whitespace-pre-wrap">' +
+        el.innerHTML = '<div class="whitespace-pre-wrap rounded-lg border border-rose-500/30 bg-rose-500/10 px-2 py-1 text-rose-300">' +
           '✗ ' + (result.message || 'error') + '</div>';
       }
     }
 
-    // Setelah verify OTP sukses, tambah field appVersionName + appVersionCode
-    // ke credentials JSON. Ini biar user aware field ini ada, dan bisa update
-    // waktu OK naikin versi minimum lagi di masa depan.
     function enrichCredentialsWithVersion(credsJsonString) {
       try {
         const obj = JSON.parse(credsJsonString);
-        // Overwrite (bukan cuma if empty) supaya user yang creds-nya udah
-        // pernah di-set dengan default lama otomatis dapat versi terbaru.
         obj.appVersionName = obj.appVersionName || "26.06.27";
         obj.appVersionCode = obj.appVersionCode || "260627";
         obj.phoneModel = obj.phoneModel || "25062RN2DY";
@@ -161,17 +152,16 @@
       } catch (_) { return credsJsonString; }
     }
 
-    // --- OrderKuota OTP flow ---
     async function requestOtp() {
       const u = document.getElementById('okuUsername').value.trim();
       const p = document.getElementById('okuPassword').value;
       if (!u || !p) {
         document.getElementById('okuLoginResult').innerHTML =
-          '<div class="bg-amber-100 text-amber-800 px-2 py-1 rounded">⚠ Isi username dan password dulu</div>';
+          '<div class="rounded-lg border border-amber-500/30 bg-amber-500/10 px-2 py-1 text-amber-200">⚠ Isi username dan password dulu</div>';
         return;
       }
       document.getElementById('okuLoginResult').innerHTML =
-        '<div class="text-slate-500">Mengirim OTP ke server OrderKuota...</div>';
+        '<div class="text-slate-400">Mengirim OTP ke server OrderKuota...</div>';
       try {
         const r = await fetch('/providers/orderkuota/request-otp', {
           method: 'POST',
@@ -181,17 +171,17 @@
         const data = await r.json();
         if (data.ok) {
           document.getElementById('okuLoginResult').innerHTML =
-            '<div class="bg-green-100 text-green-700 px-2 py-1 rounded">✓ ' + data.message + '</div>' +
-            '<div class="text-xs text-slate-600 mt-1">Cek email OrderKuota kamu, terus masukkan kode OTP di bawah.</div>';
+            '<div class="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2 py-1 text-emerald-300">✓ ' + data.message + '</div>' +
+            '<div class="mt-1 text-xs text-slate-400">Cek email OrderKuota kamu, lalu masukkan kode OTP di bawah.</div>';
           document.getElementById('okuOtpPanel').style.display = 'block';
           document.getElementById('okuOtp').focus();
         } else {
           document.getElementById('okuLoginResult').innerHTML =
-            '<div class="bg-red-100 text-red-700 px-2 py-1 rounded whitespace-pre-wrap">✗ ' + data.message + '</div>';
+            '<div class="whitespace-pre-wrap rounded-lg border border-rose-500/30 bg-rose-500/10 px-2 py-1 text-rose-300">✗ ' + data.message + '</div>';
         }
       } catch (e) {
         document.getElementById('okuLoginResult').innerHTML =
-          '<div class="bg-red-100 text-red-700 px-2 py-1 rounded">✗ ' + e.message + '</div>';
+          '<div class="rounded-lg border border-rose-500/30 bg-rose-500/10 px-2 py-1 text-rose-300">✗ ' + e.message + '</div>';
       }
     }
 
@@ -199,7 +189,7 @@
       const otp = document.getElementById('okuOtp').value.trim();
       if (!otp) return;
       document.getElementById('okuLoginResult').innerHTML =
-        '<div class="text-slate-500">Verifikasi OTP...</div>';
+        '<div class="text-slate-400">Verifikasi OTP...</div>';
       try {
         const r = await fetch('/providers/orderkuota/verify-otp', {
           method: 'POST',
@@ -209,26 +199,23 @@
         const data = await r.json();
         if (data.ok) {
           document.getElementById('okuLoginResult').innerHTML =
-            '<div class="bg-green-100 text-green-700 px-2 py-1 rounded">✓ ' + data.message + '</div>';
+            '<div class="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2 py-1 text-emerald-300">✓ ' + data.message + '</div>';
           document.getElementById('credentialsField').value = enrichCredentialsWithVersion(data.credentials);
-          // Scroll ke tombol Simpan
-          document.querySelector('button[type="submit"], form#addForm button.bg-slate-900')?.scrollIntoView({ behavior: 'smooth' });
+          document.querySelector('button[type="submit"], form#addForm button.btn-primary')?.scrollIntoView({ behavior: 'smooth' });
         } else {
           document.getElementById('okuLoginResult').innerHTML =
-            '<div class="bg-red-100 text-red-700 px-2 py-1 rounded whitespace-pre-wrap">✗ ' + data.message + '</div>';
+            '<div class="whitespace-pre-wrap rounded-lg border border-rose-500/30 bg-rose-500/10 px-2 py-1 text-rose-300">✗ ' + data.message + '</div>';
         }
       } catch (e) {
         document.getElementById('okuLoginResult').innerHTML =
-          '<div class="bg-red-100 text-red-700 px-2 py-1 rounded">✗ ' + e.message + '</div>';
+          '<div class="rounded-lg border border-rose-500/30 bg-rose-500/10 px-2 py-1 text-rose-300">✗ ' + e.message + '</div>';
       }
     }
 
-    // --- Test connection (existing) ---
     async function testPreview() {
       const form = document.getElementById('addForm');
       const fd = new FormData(form);
-      document.getElementById('testResult').innerHTML =
-        '<div class="text-slate-500">Testing...</div>';
+      document.getElementById('testResult').innerHTML = '<div class="text-slate-400">Testing...</div>';
       try {
         const r = await fetch('/providers/test-preview', {
           method: 'POST',
@@ -247,8 +234,7 @@
 
     async function testProvider(id) {
       const elId = 'test-' + id;
-      document.getElementById(elId).innerHTML =
-        '<div class="text-slate-500">Testing...</div>';
+      document.getElementById(elId).innerHTML = '<div class="text-slate-400">Testing...</div>';
       try {
         const r = await fetch('/providers/' + id + '/test', { method: 'POST' });
         renderResult(elId, await r.json());
@@ -261,37 +247,37 @@
       const elId = 'edit-' + id;
       const el = document.getElementById(elId);
       el.style.display = 'block';
-      el.innerHTML = '<div class="text-slate-500">Loading...</div>';
+      el.innerHTML = '<div class="text-slate-400">Loading...</div>';
       try {
         const r = await fetch('/providers/' + id + '/credentials');
         const data = await r.json();
-        if (!data.ok) { el.innerHTML = '<div class="text-red-700">Gagal load</div>'; return; }
+        if (!data.ok) { el.innerHTML = '<div class="text-rose-300">Gagal load</div>'; return; }
         const pretty = JSON.stringify(JSON.parse(data.credentials || '{}'), null, 2);
         el.innerHTML =
-          '<div class="border rounded p-2 bg-green-50">' +
-          '<div class="text-xs font-semibold mb-1">Edit Credentials JSON:</div>' +
-          '<textarea id="editCreds-' + id + '" class="w-full border rounded px-2 py-1 font-mono text-[10px] h-56">' +
+          '<div class="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-2">' +
+          '<div class="mb-1 text-xs font-semibold text-slate-300">Edit Credentials JSON:</div>' +
+          '<textarea id="editCreds-' + id + '" class="input h-56 font-mono text-[10px]">' +
           pretty.replace(/</g, '&lt;') +
           '</textarea>' +
-          '<div class="mt-1 text-[10px] text-slate-600">' +
-          '💡 Tips: tambah/edit "appVersionName" dan "appVersionCode" untuk versi terbaru. ' +
-          'Coba: <code>"26.07.14"/"260714"</code>, <code>"26.08.01"/"260801"</code>, atau <code>"99.99.99"/"999999"</code>.' +
+          '<div class="mt-1 text-[10px] text-slate-500">' +
+          'Tips: tambah/edit "appVersionName" &amp; "appVersionCode" untuk versi terbaru. ' +
+          'Coba: <code>"26.07.14"/"260714"</code>, <code>"99.99.99"/"999999"</code>.' +
           '</div>' +
           '<div class="mt-2 flex gap-2">' +
-          '<button onclick="saveCreds(' + id + ')" class="text-xs bg-green-600 text-white px-2 py-1 rounded">💾 Save</button>' +
-          '<button onclick="document.getElementById(\'' + elId + '\').style.display=\'none\'" class="text-xs text-slate-600">Batal</button>' +
+          '<button onclick="saveCreds(' + id + ')" class="btn btn-primary px-3 py-1 text-xs">Save</button>' +
+          '<button onclick="document.getElementById(\'' + elId + '\').style.display=\'none\'" class="btn btn-ghost px-3 py-1 text-xs">Batal</button>' +
           '</div>' +
           '<div id="editResult-' + id + '" class="mt-1 text-xs"></div>' +
           '</div>';
       } catch (e) {
-        el.innerHTML = '<div class="text-red-700">Error: ' + e.message + '</div>';
+        el.innerHTML = '<div class="text-rose-300">Error: ' + e.message + '</div>';
       }
     }
 
     async function saveCreds(id) {
       const val = document.getElementById('editCreds-' + id).value;
       const resEl = document.getElementById('editResult-' + id);
-      resEl.innerHTML = '<span class="text-slate-500">Saving...</span>';
+      resEl.innerHTML = '<span class="text-slate-400">Saving...</span>';
       try {
         const r = await fetch('/providers/' + id + '/update-credentials', {
           method: 'POST',
@@ -300,40 +286,35 @@
         });
         const data = await r.json();
         resEl.innerHTML = data.ok
-          ? '<span class="text-green-700">✓ ' + data.message + ' Sekarang tap "Poll Now" atau "Test".</span>'
-          : '<span class="text-red-700">✗ ' + data.message + '</span>';
+          ? '<span class="text-emerald-300">✓ ' + data.message + ' Sekarang tap "Poll Now" atau "Test".</span>'
+          : '<span class="text-rose-300">✗ ' + data.message + '</span>';
       } catch (e) {
-        resEl.innerHTML = '<span class="text-red-700">✗ ' + e.message + '</span>';
+        resEl.innerHTML = '<span class="text-rose-300">✗ ' + e.message + '</span>';
       }
     }
 
     async function pollNow(id) {
       const elId = 'test-' + id;
-      document.getElementById(elId).innerHTML =
-        '<div class="text-slate-500">Polling...</div>';
+      document.getElementById(elId).innerHTML = '<div class="text-slate-400">Polling...</div>';
       try {
         const r = await fetch('/providers/' + id + '/poll-now', { method: 'POST' });
         const data = await r.json();
-        if (!data.ok) {
-          renderResult(elId, data);
-          return;
-        }
+        if (!data.ok) { renderResult(elId, data); return; }
         const el = document.getElementById(elId);
         let html =
-          '<div class="bg-blue-100 text-blue-800 px-2 py-1 rounded">' +
-          '🔄 ' + data.message + '</div>' +
-          '<div class="mt-1 font-semibold text-xs">Sample mutasi terbaru (dari OK):</div>' +
-          '<pre class="bg-slate-50 p-2 rounded text-[10px] overflow-auto max-h-40">' +
+          '<div class="rounded-lg border border-brand-400/30 bg-brand-500/10 px-2 py-1 text-brand-300">🔄 ' + data.message + '</div>' +
+          '<div class="mt-1 text-xs font-semibold text-slate-300">Sample mutasi terbaru:</div>' +
+          '<pre class="max-h-40 overflow-auto rounded-lg border border-white/10 bg-ink-900/70 p-2 text-[10px] text-slate-300">' +
           JSON.stringify(data.sampleMutations, null, 2) + '</pre>' +
-          '<div class="mt-1 font-semibold text-xs">Invoice PENDING yang menunggu:</div>' +
-          '<pre class="bg-slate-50 p-2 rounded text-[10px] overflow-auto max-h-40">' +
+          '<div class="mt-1 text-xs font-semibold text-slate-300">Invoice PENDING yang menunggu:</div>' +
+          '<pre class="max-h-40 overflow-auto rounded-lg border border-white/10 bg-ink-900/70 p-2 text-[10px] text-slate-300">' +
           JSON.stringify(data.pendingInvoices, null, 2) + '</pre>';
         if (data.debug) {
-          html += '<div class="mt-2 font-semibold text-xs text-red-700">🐛 Debug — Raw Response OrderKuota:</div>' +
-            '<div class="text-[10px] text-slate-600">HTTP ' + data.debug.httpStatus +
+          html += '<div class="mt-2 text-xs font-semibold text-rose-300">🐛 Debug — Raw Response OrderKuota:</div>' +
+            '<div class="text-[10px] text-slate-500">HTTP ' + data.debug.httpStatus +
             ' · Body length ' + data.debug.rawBodyLength +
             ' · Top-level keys: ' + JSON.stringify(data.debug.parsedTopKeys) + '</div>' +
-            '<pre class="bg-red-50 p-2 rounded text-[10px] overflow-auto max-h-80 border border-red-200">' +
+            '<pre class="max-h-80 overflow-auto rounded-lg border border-rose-500/20 bg-rose-500/5 p-2 text-[10px] text-slate-300">' +
             (data.debug.parsedDataPreview || '(no data)') + '</pre>';
         }
         el.innerHTML = html;

@@ -1,57 +1,58 @@
 <!doctype html>
-<html>
+<html lang="id">
 <head><%- include('partials/head', { title: 'Invoices' }) %></head>
-<body class="bg-slate-100 min-h-screen">
+<body>
   <%- include('partials/nav') %>
-  <main class="max-w-6xl mx-auto p-6 space-y-4">
-    <div class="flex items-center gap-3">
-      <h1 class="text-2xl font-bold">Invoices</h1>
-      <form class="ml-auto flex gap-2">
-        <select name="status" onchange="this.form.submit()" class="border rounded px-2 py-1 text-sm">
-          <option value="">Semua</option>
-          <% ['PENDING','PAID','EXPIRED','CANCELLED'].forEach(function(s){ %>
+
+  <main class="mx-auto max-w-6xl space-y-6 px-4 py-8">
+    <div class="flex flex-wrap items-center gap-3">
+      <div>
+        <h1 class="text-2xl font-bold text-white">Invoices</h1>
+        <p class="text-sm text-slate-400">Daftar transaksi terbaru (maks. 100).</p>
+      </div>
+      <form class="ml-auto">
+        <select name="status" onchange="this.form.submit()" class="input w-auto">
+          <option value="">Semua status</option>
+          <% ['PENDING','PAID','EXPIRED','CANCELLED'].forEach(function (s) { %>
             <option value="<%= s %>" <%= status === s ? 'selected' : '' %>><%= s %></option>
           <% }) %>
         </select>
       </form>
     </div>
-    <div class="bg-white rounded-lg shadow-sm overflow-hidden">
-      <table class="w-full text-sm">
-        <thead class="bg-slate-50 text-slate-500">
-          <tr>
-            <th class="text-left px-4 py-2">Reference</th>
-            <th class="text-left px-4 py-2">Merchant Ref</th>
-            <th class="text-left px-4 py-2">Provider</th>
-            <th class="text-right px-4 py-2">Amount</th>
-            <th class="text-right px-4 py-2">Total</th>
-            <th class="text-left px-4 py-2">Status</th>
-            <th class="text-left px-4 py-2">Waktu</th>
-          </tr>
-        </thead>
-        <tbody>
-          <% invoices.forEach(function(inv) { %>
-            <tr class="border-t">
-              <td class="px-4 py-2"><a class="text-blue-600 hover:underline" href="/invoices/<%= inv.reference %>"><%= inv.reference %></a></td>
-              <td class="px-4 py-2 text-slate-500"><%= inv.merchantRef || '-' %></td>
-              <td class="px-4 py-2"><%= inv.provider ? inv.provider.name : '-' %></td>
-              <td class="px-4 py-2 text-right">Rp <%= inv.amount.toLocaleString('id-ID') %></td>
-              <td class="px-4 py-2 text-right font-semibold">Rp <%= inv.totalAmount.toLocaleString('id-ID') %></td>
-              <td class="px-4 py-2">
-                <span class="px-2 py-0.5 rounded text-xs font-semibold
-                  <%= inv.status === 'PAID' ? 'bg-green-100 text-green-700' :
-                      inv.status === 'PENDING' ? 'bg-amber-100 text-amber-700' :
-                      inv.status === 'EXPIRED' ? 'bg-slate-200 text-slate-600' :
-                      'bg-red-100 text-red-700' %>"><%= inv.status %></span>
-              </td>
-              <td class="px-4 py-2 text-slate-500"><%= new Date(inv.createdAt).toLocaleString('id-ID') %></td>
+
+    <section class="card overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="text-left text-xs uppercase tracking-wider text-slate-500">
+              <th class="px-5 py-3 font-medium">Reference</th>
+              <th class="px-5 py-3 font-medium">Merchant Ref</th>
+              <th class="px-5 py-3 font-medium">Provider</th>
+              <th class="px-5 py-3 text-right font-medium">Amount</th>
+              <th class="px-5 py-3 text-right font-medium">Total</th>
+              <th class="px-5 py-3 font-medium">Status</th>
+              <th class="px-5 py-3 font-medium">Waktu</th>
             </tr>
-          <% }) %>
-          <% if (!invoices.length) { %>
-            <tr><td class="px-4 py-6 text-center text-slate-400" colspan="7">Kosong.</td></tr>
-          <% } %>
-        </tbody>
-      </table>
-    </div>
+          </thead>
+          <tbody class="divide-y divide-white/5">
+            <% invoices.forEach(function (inv) { %>
+              <tr class="transition hover:bg-white/[0.03]">
+                <td class="px-5 py-3"><a class="font-mono link" href="/invoices/<%= inv.reference %>"><%= inv.reference %></a></td>
+                <td class="px-5 py-3 font-mono text-xs text-slate-400"><%= inv.merchantRef || '—' %></td>
+                <td class="px-5 py-3 text-slate-300"><%= inv.provider ? inv.provider.name : '—' %></td>
+                <td class="px-5 py-3 text-right text-slate-300">Rp <%= inv.amount.toLocaleString('id-ID') %></td>
+                <td class="px-5 py-3 text-right font-semibold text-white">Rp <%= inv.totalAmount.toLocaleString('id-ID') %></td>
+                <td class="px-5 py-3"><%- include('partials/status-badge', { status: inv.status }) %></td>
+                <td class="px-5 py-3 text-slate-400"><%= new Date(inv.createdAt).toLocaleString('id-ID') %></td>
+              </tr>
+            <% }) %>
+            <% if (!invoices.length) { %>
+              <tr><td class="px-5 py-10 text-center text-slate-500" colspan="7">Kosong.</td></tr>
+            <% } %>
+          </tbody>
+        </table>
+      </div>
+    </section>
   </main>
 </body>
 </html>
