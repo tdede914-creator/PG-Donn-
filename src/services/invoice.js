@@ -69,7 +69,12 @@ async function createInvoice(opts) {
     // Delegate QRIS generation ke Zeppelin — mereka yang handle amount + dynamic QRIS.
     // Tidak pakai unique code (Zeppelin cukup ID reference per invoice).
     const zeppelin = require('../providers/zeppelin_orderkuota');
-    const gw = await zeppelin.createPaymentOnGateway(provider, amount, { expiryMinutes });
+    // NOTE: variabel local di fungsi ini bernama `expireMinutes`. Sebelumnya
+    // dikirim sebagai `{ expiryMinutes }` yg undefined → Zeppelin selalu
+    // pakai default 15 menit tanpa memperhatikan config.invoice.expireMinutes.
+    const gw = await zeppelin.createPaymentOnGateway(provider, amount, {
+      expiryMinutes: expireMinutes,
+    });
     qrisDynamic = gw.qrisString;
     totalAmount = gw.totalAmount || amount;
     uniqueCode = gw.uniqueCode || (totalAmount - amount);
