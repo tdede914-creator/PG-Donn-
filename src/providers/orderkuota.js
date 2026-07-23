@@ -32,7 +32,16 @@ const crypto = require('crypto');
 // Endpoint OrderKuota (dari analisa PHP source YuF1Dev + fork).
 const API_BASE = 'https://app.orderkuota.com/api/v2';
 const LOGIN_ENDPOINT = `${API_BASE}/login`;      // step 1 & 2 pakai endpoint sama
-const GET_ENDPOINT = `${API_BASE}/get`;          // mutasi + saldo
+const GET_ENDPOINT = `${API_BASE}/get`;          // sub-request generic (account, point)
+// ENDPOINT MUTASI QRIS. OK sudah pindahkan `qris_history` dari `/api/v2/get`
+// (yang sekarang balas "Silakan perbarui aplikasi" walau versi di-bump) ke
+// endpoint dedicated `/api/v2/qris/mutasi/{tokenId}` — ini yang masih works,
+// sama seperti yang dipakai library referensi jywa-orkut. Karena token
+// diletakkan di URL PATH (bukan di body), URL harus dibangun per-request.
+function buildQrisMutasiEndpoint(token) {
+  const tokenId = String(token).split(':')[0];
+  return `${API_BASE}/qris/mutasi/${encodeURIComponent(tokenId)}`;
+}
 
 // Default versi app OK. OK server nolak akses qris_history kalau versi
 // terlalu lama ("Silakan perbarui aplikasi Order Kuota terlebih dahulu").
@@ -277,23 +286,35 @@ async function fetchMutations(provider) {
   const phoneAndroidVersion = creds.phoneAndroidVersion || PHONE_ANDROID_VERSION;
   const phoneModel = creds.phoneModel || PHONE_MODEL;
 
+  // Payload sesuai format yang di-verify masih works oleh library jywa-orkut
+  // (referensi: https://github.com/tdede914-creator/jywa-orkut, method
+  // `getQRISHistory()`). Beda vs endpoint `/api/v2/get` lama:
+  //   - Tidak ada `requests[1]=point` (bukan sub-request yang valid di sini)
+  //   - `keterangan`, `jumlah`, `page`, `dari_tanggal`, `ke_tanggal` semua
+  //     dikirim eksplisit walau kosong (server OK strict di sisi field list)
+  //   - Tidak pakai `selected=kredit` — filter kredit/debet dilakukan di
+  //     sisi client di `normalize()`
+  //   - `request_time` dalam MILLISECOND, bukan second (match Jywa persis)
   const form = new URLSearchParams();
-  form.append('request_time', String(Math.floor(Date.now() / 1000)));
   form.append('app_reg_id', appRegId);
+  form.append('phone_uuid', phoneUuid);
+  form.append('phone_model', phoneModel);
+  form.append('requests[qris_history][keterangan]', '');
+  form.append('requests[qris_history][jumlah]', '30'); // limit 30 mutasi terbaru
+  form.append('request_time', String(Date.now()));
   form.append('phone_android_version', phoneAndroidVersion);
   form.append('app_version_code', appVersionCode);
-  form.append('phone_uuid', phoneUuid);
   form.append('auth_username', authUsername);
-  form.append('requests[0]', 'account');
-  form.append('requests[1]', 'point');
-  form.append('requests[qris_history][jumlah]', '30');
-  form.append('requests[qris_history][selected]', 'kredit'); // hanya masuk
+  form.append('requests[qris_history][page]', '1');
   form.append('auth_token', token);
   form.append('app_version_name', appVersionName);
   form.append('ui_mode', 'light');
-  form.append('phone_model', phoneModel);
+  form.append('requests[qris_history][dari_tanggal]', '');
+  form.append('requests[0]', 'account');
+  form.append('requests[qris_history][ke_tanggal]', '');
 
-  const { status, data } = await callOkApi(GET_ENDPOINT, form, 'fetch mutasi');
+  const endpoint = buildQrisMutasiEndpoint(token);
+  const { status, data } = await callOkApi(endpoint, form, 'fetch mutasi');
 
   // Deteksi token expired.
   if (data.success === false || data.status === false) {
