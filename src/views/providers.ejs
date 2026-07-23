@@ -19,13 +19,7 @@
           <div>
             <label class="block mb-1">Type</label>
             <select name="type" id="typeSelect" class="w-full border rounded px-3 py-2">
-              <option value="orderkuota_jywa">⭐ OrderKuota-KOBONGCLOUDSERVER (endpoint /qris/mutasi — REKOMENDASI)</option>
-              <option value="zeppelin_orderkuota">Zeppelin OrderKuota (per-invoice tracking via 3rd party)</option>
-              <option value="orderkuota_balance">OrderKuota Balance-Delta (works, saldo delta)</option>
-              <option value="okeconnect_h2h">OkConnect H2H API (legacy)</option>
-              <option value="orderkuota">OrderKuota (mobile API - kena block versi)</option>
-              <option value="okeconnect">OkConnect (scrape session cookie)</option>
-              <option value="dana_bisnis">DANA Bisnis</option>
+              <option value="orderkuota_jywa">⭐ OrderKuota-KOBONGCLOUDSERVER (endpoint /qris/mutasi)</option>
             </select>
           </div>
 
@@ -104,7 +98,6 @@
               <div class="mt-2 flex gap-2 items-center flex-wrap">
                 <button onclick="testProvider(<%= p.id %>)" class="text-xs text-amber-600 hover:text-amber-800">🔌 Test</button>
                 <button onclick="pollNow(<%= p.id %>)" class="text-xs text-blue-600 hover:text-blue-800">🔄 Poll Now (debug)</button>
-                <button onclick="exploreVariants(<%= p.id %>)" class="text-xs text-purple-600 hover:text-purple-800">🔬 Try All Variants</button>
                 <button onclick="editCreds(<%= p.id %>)" class="text-xs text-green-600 hover:text-green-800">✏️ Edit Credentials</button>
                 <form method="POST" action="/providers/<%= p.id %>/toggle" class="inline"><button class="text-xs text-slate-600 hover:text-slate-900">Toggle</button></form>
                 <form method="POST" action="/providers/<%= p.id %>/delete" class="inline" onsubmit="return confirm('Hapus provider ini?')"><button class="text-xs text-red-600 hover:text-red-800">Hapus</button></form>
@@ -121,59 +114,15 @@
   <script>
     const templates = {
       orderkuota_jywa: JSON.stringify({
-        username: "xxdonn",
-        authUsername: "xxdonn",
-        authToken: "2447815:AUTH_TOKEN_HASIL_LOGIN_OTP",
-        appRegId: "e5aCENGrQOWvhQWYnv-uNc:APA91bFj3O_mv5Nf_2SM4Duz4Z8Ug3nBNaHlgodlY92CBuNIA9xmc0Dahev5xxqssPmnTdcie4mlhiG9ZAE1iCe1QbyhxcUyGXlenJxiUaXdfm1rklOEo9k",
-        phoneUuid: "e5aCENGrQOWvhQWYnv-uNc",
+        username: "USERNAME_ORDERKUOTA",
+        authUsername: "USERNAME_ORDERKUOTA",
+        authToken: "AUTO_DIISI_LEWAT_LOGIN_OTP_DI_ATAS",
+        appRegId: "AUTO_DIISI_LEWAT_LOGIN_OTP_DI_ATAS",
+        phoneUuid: "AUTO_DIISI_LEWAT_LOGIN_OTP_DI_ATAS",
         phoneModel: "sdk_gphone64_x86_64",
         phoneAndroidVersion: "16",
         appVersionCode: "250811",
         appVersionName: "25.08.11"
-      }, null, 2),
-      zeppelin_orderkuota: JSON.stringify({
-        authUsername: "USERNAME_ORDERKUOTA_KAMU",
-        authToken: "GET_DARI_https://zeppelin-api.vercel.app/get-auth",
-        apiUrl: "https://zeppelin-api.vercel.app"
-      }, null, 2),
-      orderkuota_balance: JSON.stringify({
-        username: "xxdonn",
-        authToken: "PASTE_authToken_HASIL_OTP_LOGIN",
-        authUsername: "xxdonn",
-        appRegId: "PASTE_appRegId_HASIL_OTP_LOGIN",
-        phoneUuid: "PASTE_phoneUuid_HASIL_OTP_LOGIN",
-        appVersionName: "26.06.27",
-        appVersionCode: "260627",
-        phoneModel: "25062RN2DY",
-        phoneAndroidVersion: "15"
-      }, null, 2),
-      okeconnect_h2h: JSON.stringify({
-        merchantId: "OK2447815",
-        apiKey: "442568617503335582447815OKCTA95085B7F6E675C6087EDA93EE038CCD",
-        baseUrl: "https://gateway.okeconnect.com"
-      }, null, 2),
-      orderkuota: JSON.stringify({
-        username: "AUTO_DIISI_LEWAT_LOGIN_OTP_DI_ATAS",
-        authToken: "AUTO_DIISI_LEWAT_LOGIN_OTP_DI_ATAS",
-        authUsername: "AUTO_DIISI_LEWAT_LOGIN_OTP_DI_ATAS",
-        appRegId: "AUTO_DIISI_LEWAT_LOGIN_OTP_DI_ATAS"
-      }, null, 2),
-      okeconnect: JSON.stringify({
-        sessionCookie: "PASTE_VALUE_ci_session_DARI_LAPTOP_F12",
-        cookieName: "ci_session",
-        mutasiUrl: "https://okeconnect.com/mutasi",
-        maxPages: 1,
-        descFilter: "Pencairan QRIS"
-      }, null, 2),
-      dana_bisnis: JSON.stringify({
-        endpoint: "https://api-partner.dana.id/v1/merchant/transaction/history",
-        method: "POST",
-        headers: {
-          "Authorization": "Bearer TOKEN_DARI_F12",
-          "X-Signature": "SIGNATURE_DARI_F12"
-        },
-        body: { startDate: "AUTO_TODAY", endDate: "AUTO_TODAY" },
-        resultsPath: "data.transactions"
       }, null, 2),
     };
 
@@ -181,16 +130,6 @@
       const type = document.getElementById('typeSelect').value;
       document.getElementById('credentialsField').value = templates[type] || '{}';
     }
-
-    function toggleOkuPanel() {
-      const type = document.getElementById('typeSelect').value;
-      // OTP panel muncul untuk semua orderkuota-based adapter
-      document.getElementById('okuLoginPanel').style.display =
-        (type === 'orderkuota' || type === 'orderkuota_balance' || type === 'orderkuota_jywa') ? 'block' : 'none';
-    }
-
-    document.getElementById('typeSelect').addEventListener('change', toggleOkuPanel);
-    toggleOkuPanel();  // init
 
     function renderResult(elId, result) {
       const el = document.getElementById(elId);
@@ -365,35 +304,6 @@
           : '<span class="text-red-700">✗ ' + data.message + '</span>';
       } catch (e) {
         resEl.innerHTML = '<span class="text-red-700">✗ ' + e.message + '</span>';
-      }
-    }
-
-    async function exploreVariants(id) {
-      const elId = 'test-' + id;
-      const el = document.getElementById(elId);
-      el.innerHTML = '<div class="text-slate-500">Testing 8 URL/payload variants (~ 5 detik)...</div>';
-      try {
-        const r = await fetch('/providers/' + id + '/explore-variants', { method: 'POST' });
-        const data = await r.json();
-        if (!data.ok) { el.innerHTML = '<div class="text-red-700">✗ ' + data.message + '</div>'; return; }
-        let html = '<div class="bg-purple-100 text-purple-800 px-2 py-1 rounded font-semibold">🔬 ' + data.message + '</div>';
-        html += '<div class="mt-2 space-y-1">';
-        for (const v of data.variants) {
-          const promising = v.mutasiCount > 0;
-          const bg = promising ? 'bg-green-50 border-green-300' : (v.error ? 'bg-red-50 border-red-300' : 'bg-slate-50 border-slate-200');
-          html += '<div class="border rounded p-2 text-[10px] ' + bg + '">';
-          html += '<div class="font-semibold">' + (promising ? '🎯 ' : '') + v.name + '</div>';
-          html += '<div class="text-slate-600">HTTP ' + (v.httpStatus||'-') + ' · mutasi=' + (v.mutasiCount||0) +
-            ' · subStatus=' + (v.subStatus===null?'null':JSON.stringify(v.subStatus)) +
-            ' · ' + (v.took||0) + 'ms</div>';
-          if (v.error) html += '<div class="text-red-700">Error: ' + v.error + '</div>';
-          if (v.preview) html += '<pre class="mt-1 bg-white p-1 rounded overflow-auto max-h-20 text-[9px]">' + v.preview.replace(/</g,'&lt;') + '</pre>';
-          html += '</div>';
-        }
-        html += '</div>';
-        el.innerHTML = html;
-      } catch (e) {
-        el.innerHTML = '<div class="text-red-700">✗ ' + e.message + '</div>';
       }
     }
 

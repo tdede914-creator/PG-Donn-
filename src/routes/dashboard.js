@@ -169,31 +169,6 @@ router.post('/providers/:id/test', async (req, res) => {
   }
 });
 
-// URL Variant Explorer — coba 8 kombinasi endpoint/payload untuk OK
-// qris_history, kembalikan matrix hasil biar user (dan saya) bisa liat mana
-// yang lolos anti-scraping. Cuma untuk debug, bukan production polling.
-router.post('/providers/:id/explore-variants', async (req, res) => {
-  const id = parseInt(req.params.id, 10);
-  const provider = await prisma.provider.findUnique({ where: { id } });
-  if (!provider) return res.status(404).json({ ok: false, message: 'Provider tidak ditemukan' });
-  try {
-    const explorer = require('../providers/orderkuota_explorer');
-    const results = await explorer.tryAllVariants(provider);
-    // Highlight variant yang paling promising
-    const successful = results.filter(r => r.mutasiCount > 0);
-    res.json({
-      ok: true,
-      message: successful.length > 0
-        ? `🎯 KETEMU! ${successful.length} variant return mutasi data.`
-        : `Semua ${results.length} variant tolak. Cek preview response masing-masing untuk pattern rejection.`,
-      variants: results,
-      successful,
-    });
-  } catch (e) {
-    res.json({ ok: false, message: e.message || String(e) });
-  }
-});
-
 // Trigger POLLER manual + kembalikan raw response (debug).
 // Berguna untuk melihat: apa yang OK balikin? Apakah normalize() bisa parse?
 router.post('/providers/:id/poll-now', async (req, res) => {
@@ -216,21 +191,19 @@ router.post('/providers/:id/poll-now', async (req, res) => {
       take: 5,
     });
 
-    // Untuk orderkuota, expose debug info (raw response) supaya user bisa
-    // liat OK balikin apa persisnya kalau normalize gagal detect.
+    // Expose debug info (raw response OK) supaya user bisa liat OK balikin
+    // apa persisnya kalau normalize gagal detect.
     let debugInfo = null;
     try {
-      const oku = require('../providers/orderkuota');
+      const oku = require('../providers/orderkuota_jywa');
       if (typeof oku.getLastFetchDebug === 'function') {
         const dbg = oku.getLastFetchDebug();
         if (dbg) {
-          // Kirim ringkas: hanya top-level keys + preview
           debugInfo = {
             httpStatus: dbg.httpStatus,
             contentType: dbg.contentType,
             rawBodyLength: dbg.rawBodyLength,
             parsedTopKeys: dbg.parsedTopKeys,
-            // Preview isi parsedData up to 4KB stringified untuk dilihat user
             parsedDataPreview: JSON.stringify(dbg.parsedData, null, 2).slice(0, 4000),
           };
         }
@@ -286,7 +259,7 @@ router.post('/providers/test-preview', async (req, res) => {
 router.post('/providers/orderkuota/request-otp', async (req, res) => {
   try {
     const { username, password } = req.body;
-    const orderkuota = require('../providers/orderkuota');
+    const orderkuota = require('../providers/orderkuota_jywa');
     const result = await orderkuota.requestOtp({ username, password });
     // Simpan info temporary di session buat step verify
     req.session.okuOtp = {
@@ -311,7 +284,7 @@ router.post('/providers/orderkuota/verify-otp', async (req, res) => {
       });
     }
     const { otp } = req.body;
-    const orderkuota = require('../providers/orderkuota');
+    const orderkuota = require('../providers/orderkuota_jywa');
     const result = await orderkuota.verifyOtp({
       username: otpData.username,
       otp: String(otp || '').trim(),
@@ -353,9 +326,11 @@ router.post('/providers/orderkuota/verify-otp', async (req, res) => {
 
 // ----- API Keys -----
 router.get('/apikeys', async (req, res) => {
+  const config = require('../config');
   const keys = await prisma.apiKey.findMany({ orderBy: { createdAt: 'desc' } });
   res.render('apikeys', {
     keys,
+    baseUrl: config.baseUrl,
     session: req.session,
     active: 'apikeys',
     flash: req.flash('info')[0],

@@ -60,31 +60,11 @@ async function createInvoice(opts) {
   const expireMinutes = config.invoice.expireMinutes;
   const expiredAt = new Date(Date.now() + expireMinutes * 60_000);
 
-  let uniqueCode;
-  let totalAmount;
-  let qrisDynamic;
-  let externalRef = null;
-
-  if (provider.type === 'zeppelin_orderkuota') {
-    // Delegate QRIS generation ke Zeppelin — mereka yang handle amount + dynamic QRIS.
-    // Tidak pakai unique code (Zeppelin cukup ID reference per invoice).
-    const zeppelin = require('../providers/zeppelin_orderkuota');
-    // NOTE: variabel local di fungsi ini bernama `expireMinutes`. Sebelumnya
-    // dikirim sebagai `{ expiryMinutes }` yg undefined → Zeppelin selalu
-    // pakai default 15 menit tanpa memperhatikan config.invoice.expireMinutes.
-    const gw = await zeppelin.createPaymentOnGateway(provider, amount, {
-      expiryMinutes: expireMinutes,
-    });
-    qrisDynamic = gw.qrisString;
-    totalAmount = gw.totalAmount || amount;
-    uniqueCode = gw.uniqueCode || (totalAmount - amount);
-    externalRef = gw.externalRef;
-  } else {
-    // Provider lain: generate QRIS lokal dari static QRIS + unique code trick.
-    uniqueCode = await pickUniqueCode(amount);
-    totalAmount = amount + uniqueCode;
-    qrisDynamic = qris.generateDynamicQris(provider.qrisStatic, totalAmount);
-  }
+  // Generate QRIS lokal dari static QRIS provider + unique-code trick.
+  const uniqueCode = await pickUniqueCode(amount);
+  const totalAmount = amount + uniqueCode;
+  const qrisDynamic = qris.generateDynamicQris(provider.qrisStatic, totalAmount);
+  const externalRef = null;
 
   const invoice = await prisma.invoice.create({
     data: {
