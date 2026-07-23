@@ -1,0 +1,11 @@
+<%
+  var _s = String(status || '').toUpperCase();
+  var _cls = _s === 'PAID' ? 'badge-paid'
+    : _s === 'PENDING' ? 'badge-pending'
+    : _s === 'EXPIRED' ? 'badge-expired'
+    : 'badge-cancelled';
+  var _dot = _s === 'PAID' ? 'bg-emerald-400'
+    : _s === 'PENDING' ? 'bg-amber-400'
+    : _s === 'EXPIRED' ? 'bg-slate-400'
+    : 'bg-rose-400';
+%><span class="badge <%= _cls %>"><span class="h-1.5 w-1.5 rounded-full <%= _dot %>"></span><%= _s %></span>

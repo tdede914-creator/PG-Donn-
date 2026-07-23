@@ -1,62 +1,89 @@
 <!doctype html>
 <html lang="id">
-<head><%- include('partials/head', { title: 'Bayar - ' + invoice.reference }) %></head>
-<body class="bg-slate-100 min-h-screen flex items-center justify-center p-4">
-  <div class="bg-white rounded-xl shadow-lg max-w-md w-full p-6 space-y-4">
-    <div class="text-center">
-      <div class="text-slate-500 text-sm">Total Tagihan</div>
-      <div class="text-3xl font-bold">Rp <%= invoice.totalAmount.toLocaleString('id-ID') %></div>
-      <div class="text-xs text-slate-500 mt-1">
-        Rp <%= invoice.amount.toLocaleString('id-ID') %> + kode unik Rp <%= invoice.uniqueCode %>
+<head><%- include('partials/head', { title: 'Bayar ' + invoice.reference }) %></head>
+<body class="flex items-center justify-center p-4">
+  <div class="w-full max-w-md">
+    <!-- Brand -->
+    <div class="mb-5 flex items-center justify-center gap-2.5">
+      <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-brand-500 to-brand-400 shadow-glow">
+        <svg class="h-5 w-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18"/><path d="M7 15h4"/></svg>
+      </span>
+      <div class="leading-tight">
+        <div class="text-sm font-bold text-white">Payment Gateway</div>
+        <div class="text-[10px] font-medium uppercase tracking-wider text-brand-400">Kobong Cloud Server</div>
       </div>
     </div>
 
-    <div id="qr" class="flex justify-center">
-      <img src="<%= qrImage %>" alt="QRIS" class="w-72 h-72" />
-    </div>
+    <div class="card overflow-hidden">
+      <!-- Amount -->
+      <div class="border-b border-white/10 bg-gradient-to-b from-white/[0.06] to-transparent px-6 py-6 text-center">
+        <div class="text-xs uppercase tracking-wider text-slate-400">Total Tagihan</div>
+        <div class="mt-1 text-4xl font-extrabold text-white">Rp <%= invoice.totalAmount.toLocaleString('id-ID') %></div>
+        <div class="mt-1 text-xs text-slate-500">
+          Rp <%= invoice.amount.toLocaleString('id-ID') %> + kode unik Rp <%= invoice.uniqueCode %>
+        </div>
+      </div>
 
-    <div class="text-center text-sm">
-      <div class="text-slate-500">Reference:</div>
-      <div class="font-mono"><%= invoice.reference %></div>
-    </div>
+      <div class="space-y-5 p-6">
+        <!-- QR -->
+        <div class="flex justify-center">
+          <div class="rounded-2xl bg-white p-3 shadow-glow">
+            <img src="<%= qrImage %>" alt="QRIS" class="h-64 w-64" />
+          </div>
+        </div>
 
-    <div class="text-center">
-      <div id="status" class="px-3 py-2 rounded font-semibold
-        <%= invoice.status === 'PAID' ? 'bg-green-100 text-green-700' :
-            invoice.status === 'PENDING' ? 'bg-amber-100 text-amber-700' :
-            invoice.status === 'EXPIRED' ? 'bg-slate-200 text-slate-600' :
-            'bg-red-100 text-red-700' %>"><%= invoice.status %></div>
-      <div class="text-xs text-slate-500 mt-2">
-        Kadaluarsa: <span id="expiry"><%= new Date(invoice.expiredAt).toLocaleString('id-ID') %></span>
+        <div class="text-center">
+          <div class="text-xs uppercase tracking-wider text-slate-500">Reference</div>
+          <div class="font-mono text-sm text-slate-200"><%= invoice.reference %></div>
+        </div>
+
+        <!-- Status -->
+        <div class="flex flex-col items-center gap-2">
+          <div id="status" class="badge text-sm
+            <%= invoice.status === 'PAID' ? 'badge-paid' :
+                invoice.status === 'PENDING' ? 'badge-pending' :
+                invoice.status === 'EXPIRED' ? 'badge-expired' : 'badge-cancelled' %>">
+            <%= invoice.status %>
+          </div>
+          <div class="text-xs text-slate-500">
+            Kadaluarsa: <span id="expiry"><%= new Date(invoice.expiredAt).toLocaleString('id-ID') %></span>
+          </div>
+        </div>
+
+        <!-- Instructions -->
+        <div class="rounded-xl border border-white/10 bg-white/[0.03] p-4 text-xs text-slate-400">
+          <p class="font-semibold text-slate-300">Cara bayar:</p>
+          <ol class="ml-4 mt-2 list-decimal space-y-1">
+            <li>Buka aplikasi e-wallet / m-banking yang mendukung QRIS.</li>
+            <li>Scan QR di atas.</li>
+            <li>Pastikan nominal <b class="text-brand-300">tepat Rp <%= invoice.totalAmount.toLocaleString('id-ID') %></b> — kode unik tidak boleh diubah.</li>
+            <li>Selesaikan pembayaran. Halaman ini otomatis update saat dana masuk.</li>
+          </ol>
+        </div>
       </div>
     </div>
 
-    <div class="text-xs text-slate-500 border-t pt-3">
-      <p><b>Cara bayar:</b></p>
-      <ol class="list-decimal ml-5 space-y-1 mt-1">
-        <li>Buka aplikasi e-wallet / m-banking apa saja yang mendukung QRIS.</li>
-        <li>Scan QR di atas.</li>
-        <li>Pastikan nominal <b>tepat Rp <%= invoice.totalAmount.toLocaleString('id-ID') %></b>. Kode unik <b>tidak boleh diubah</b>.</li>
-        <li>Selesaikan pembayaran. Halaman ini akan otomatis update saat dana masuk.</li>
-      </ol>
-    </div>
+    <p class="mt-4 text-center text-xs text-slate-600">Dilindungi QRIS · Kobong Cloud Server</p>
   </div>
 
   <script>
     const ref = <%- JSON.stringify(invoice.reference) %>;
     let done = <%- JSON.stringify(invoice.status !== 'PENDING') %>;
+    const badgeClass = {
+      PAID: 'badge badge-paid text-sm',
+      EXPIRED: 'badge badge-expired text-sm',
+      CANCELLED: 'badge badge-cancelled text-sm',
+      PENDING: 'badge badge-pending text-sm',
+    };
     async function poll() {
       if (done) return;
       try {
         const r = await fetch('/pay/' + ref + '/status');
         const data = await r.json();
         if (data.status !== 'PENDING') {
-          document.getElementById('status').textContent = data.status;
-          document.getElementById('status').className =
-            'px-3 py-2 rounded font-semibold ' +
-            (data.status === 'PAID' ? 'bg-green-100 text-green-700' :
-             data.status === 'EXPIRED' ? 'bg-slate-200 text-slate-600' :
-             'bg-red-100 text-red-700');
+          const el = document.getElementById('status');
+          el.textContent = data.status;
+          el.className = badgeClass[data.status] || badgeClass.CANCELLED;
           done = true;
         }
       } catch (e) { /* ignore */ }

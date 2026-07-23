@@ -33,8 +33,23 @@ const config = require('../config');
 
 const nano = customAlphabet('0123456789ABCDEFGHJKLMNPQRSTUVWXYZ', 10);
 
+// Alfabet tanpa karakter ambigu (0/O, 1/I) supaya merchant ref enak dibaca &
+// diketik ulang manual. 8 karakter → 32^8 ≈ 1,1 triliun kombinasi, tabrakan
+// praktis mustahil.
+const merchantRefNano = customAlphabet('0123456789ABCDEFGHJKLMNPQRSTUVWXYZ', 8);
+
 function generateReference() {
   return `INV-${nano()}`;
+}
+
+/**
+ * Generate merchant reference otomatis dengan format `KCS-XXXXXXXX`
+ * (angka + huruf). Dipakai sebagai fallback saat merchant TIDAK mengirim
+ * `merchant_ref` sendiri, supaya setiap invoice tetap punya identifier yang
+ * rapi & konsisten (bukan lagi kosong "-" di dashboard).
+ */
+function generateMerchantRef() {
+  return `KCS-${merchantRefNano()}`;
 }
 
 /**
@@ -147,6 +162,13 @@ async function createInvoice(opts) {
   const expiredAt = new Date(Date.now() + expireMinutes * 60_000);
   const reference = generateReference();
 
+  // Kalau merchant tidak kirim merchant_ref sendiri, generate otomatis
+  // format `KCS-XXXXXXXX`. Ini dilakukan SETELAH blok idempotency di atas,
+  // supaya ref auto-generate (yang selalu unik) tidak ikut logika idempotency
+  // — tiap POST tanpa merchant_ref tetap menghasilkan invoice baru, persis
+  // seperti perilaku sebelumnya, hanya saja sekarang ber-label rapi.
+  const finalMerchantRef = merchantRef || generateMerchantRef();
+
   // -----------------------------------------------------------------------
   // Race-safe pemilihan uniqueCode + create Invoice. Kedua step dilakukan
   // di dalam SATU transaction; SQLite men-serialize writer, sehingga dua
@@ -165,7 +187,7 @@ async function createInvoice(opts) {
       return await tx.invoice.create({
         data: {
           reference,
-          merchantRef: merchantRef || null,
+          merchantRef: finalMerchantRef,
           externalRef: null,
           amount,
           uniqueCode,
@@ -198,5 +220,6 @@ module.exports = {
   createInvoice,
   expireOverdue,
   generateReference,
+  generateMerchantRef,
   InvoiceCreateError,
 };

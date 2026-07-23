@@ -1,58 +1,84 @@
 <!doctype html>
-<html>
+<html lang="id">
 <head><%- include('partials/head', { title: 'Dashboard' }) %></head>
-<body class="bg-slate-100 min-h-screen">
+<body>
   <%- include('partials/nav') %>
-  <main class="max-w-6xl mx-auto p-6 space-y-6">
-    <h1 class="text-2xl font-bold">Dashboard</h1>
 
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-      <div class="bg-white rounded-lg p-4 shadow-sm">
-        <div class="text-slate-500 text-sm">Total Invoice</div>
-        <div class="text-2xl font-bold"><%= stats.totalInvoices %></div>
+  <main class="mx-auto max-w-6xl space-y-8 px-4 py-8">
+    <!-- Hero -->
+    <section class="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-ink-700/80 to-ink-900/80 p-8 shadow-card">
+      <div class="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-brand-500/20 blur-3xl"></div>
+      <div class="relative">
+        <div class="inline-flex items-center gap-2 rounded-full border border-brand-400/30 bg-brand-500/10 px-3 py-1 text-xs font-medium text-brand-300">
+          <span class="h-1.5 w-1.5 animate-pulse rounded-full bg-brand-400"></span>
+          Sistem aktif · QRIS auto-confirm
+        </div>
+        <h1 class="mt-4 text-3xl font-extrabold tracking-tight text-white sm:text-4xl">
+          Payment Gateway <span class="bg-gradient-to-r from-brand-400 to-sky-300 bg-clip-text text-transparent">ORKUT</span>
+        </h1>
+        <p class="mt-1 text-sm text-slate-400">Kobong Cloud Server — dashboard ringkasan transaksi & pembayaran QRIS.</p>
       </div>
-      <div class="bg-white rounded-lg p-4 shadow-sm">
-        <div class="text-slate-500 text-sm">Lunas</div>
-        <div class="text-2xl font-bold text-green-600"><%= stats.paidInvoices %></div>
-      </div>
-      <div class="bg-white rounded-lg p-4 shadow-sm">
-        <div class="text-slate-500 text-sm">Pending</div>
-        <div class="text-2xl font-bold text-amber-600"><%= stats.pendingInvoices %></div>
-      </div>
-      <div class="bg-white rounded-lg p-4 shadow-sm">
-        <div class="text-slate-500 text-sm">Revenue (PAID)</div>
-        <div class="text-2xl font-bold">Rp <%= stats.revenue.toLocaleString('id-ID') %></div>
-      </div>
-    </div>
+    </section>
 
-    <div class="bg-white rounded-lg shadow-sm overflow-hidden">
-      <div class="px-4 py-3 border-b font-semibold">Invoice Terbaru</div>
-      <table class="w-full text-sm">
-        <thead class="bg-slate-50 text-slate-500">
-          <tr><th class="text-left px-4 py-2">Reference</th><th class="text-left px-4 py-2">Merchant Ref</th><th class="text-right px-4 py-2">Total</th><th class="text-left px-4 py-2">Status</th><th class="text-left px-4 py-2">Waktu</th></tr>
-        </thead>
-        <tbody>
-          <% recent.forEach(function(inv) { %>
-            <tr class="border-t">
-              <td class="px-4 py-2"><a class="text-blue-600 hover:underline" href="/invoices/<%= inv.reference %>"><%= inv.reference %></a></td>
-              <td class="px-4 py-2 text-slate-500"><%= inv.merchantRef || '-' %></td>
-              <td class="px-4 py-2 text-right">Rp <%= inv.totalAmount.toLocaleString('id-ID') %></td>
-              <td class="px-4 py-2">
-                <span class="px-2 py-0.5 rounded text-xs font-semibold
-                  <%= inv.status === 'PAID' ? 'bg-green-100 text-green-700' :
-                      inv.status === 'PENDING' ? 'bg-amber-100 text-amber-700' :
-                      inv.status === 'EXPIRED' ? 'bg-slate-200 text-slate-600' :
-                      'bg-red-100 text-red-700' %>"><%= inv.status %></span>
-              </td>
-              <td class="px-4 py-2 text-slate-500"><%= new Date(inv.createdAt).toLocaleString('id-ID') %></td>
+    <!-- Stats -->
+    <section class="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div class="card card-hover p-5">
+        <div class="stat-label">Total Invoice</div>
+        <div class="stat-value"><%= stats.totalInvoices %></div>
+      </div>
+      <div class="card card-hover p-5">
+        <div class="stat-label">Lunas</div>
+        <div class="stat-value text-emerald-400"><%= stats.paidInvoices %></div>
+      </div>
+      <div class="card card-hover p-5">
+        <div class="stat-label">Pending</div>
+        <div class="stat-value text-amber-400"><%= stats.pendingInvoices %></div>
+      </div>
+      <div class="card card-hover p-5">
+        <div class="stat-label">Revenue (Paid)</div>
+        <div class="stat-value">
+          <span class="text-base font-medium text-slate-400">Rp</span>
+          <%= stats.revenue.toLocaleString('id-ID') %>
+        </div>
+      </div>
+    </section>
+
+    <!-- Recent invoices -->
+    <section class="card overflow-hidden">
+      <div class="flex items-center justify-between border-b border-white/10 px-5 py-4">
+        <h2 class="font-semibold text-white">Invoice Terbaru</h2>
+        <a href="/invoices" class="link text-sm">Lihat semua &rarr;</a>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="text-left text-xs uppercase tracking-wider text-slate-500">
+              <th class="px-5 py-3 font-medium">Reference</th>
+              <th class="px-5 py-3 font-medium">Merchant Ref</th>
+              <th class="px-5 py-3 text-right font-medium">Total</th>
+              <th class="px-5 py-3 font-medium">Status</th>
+              <th class="px-5 py-3 font-medium">Waktu</th>
             </tr>
-          <% }) %>
-          <% if (!recent.length) { %>
-            <tr><td class="px-4 py-6 text-center text-slate-400" colspan="5">Belum ada invoice.</td></tr>
-          <% } %>
-        </tbody>
-      </table>
-    </div>
+          </thead>
+          <tbody class="divide-y divide-white/5">
+            <% recent.forEach(function (inv) { %>
+              <tr class="transition hover:bg-white/[0.03]">
+                <td class="px-5 py-3">
+                  <a class="font-mono link" href="/invoices/<%= inv.reference %>"><%= inv.reference %></a>
+                </td>
+                <td class="px-5 py-3 font-mono text-xs text-slate-400"><%= inv.merchantRef || '—' %></td>
+                <td class="px-5 py-3 text-right font-semibold text-white">Rp <%= inv.totalAmount.toLocaleString('id-ID') %></td>
+                <td class="px-5 py-3"><%- include('partials/status-badge', { status: inv.status }) %></td>
+                <td class="px-5 py-3 text-slate-400"><%= new Date(inv.createdAt).toLocaleString('id-ID') %></td>
+              </tr>
+            <% }) %>
+            <% if (!recent.length) { %>
+              <tr><td class="px-5 py-10 text-center text-slate-500" colspan="5">Belum ada invoice.</td></tr>
+            <% } %>
+          </tbody>
+        </table>
+      </div>
+    </section>
   </main>
 </body>
 </html>

@@ -1,109 +1,117 @@
 <!doctype html>
-<html>
+<html lang="id">
 <head><%- include('partials/head', { title: 'API Keys' }) %></head>
-<body class="bg-slate-100 min-h-screen">
+<body>
   <%- include('partials/nav') %>
-  <main class="max-w-6xl mx-auto p-6 space-y-6">
-    <h1 class="text-2xl font-bold">API Keys</h1>
-    <% if (flash) { %><div class="bg-amber-100 text-amber-800 px-3 py-2 rounded text-sm"><%= flash %></div><% } %>
 
-    <form method="POST" action="/apikeys" class="bg-white p-4 rounded-lg shadow-sm flex gap-2 text-sm">
-      <input name="label" placeholder="Label, mis. bot-telegram-prod" class="border rounded px-3 py-2 flex-1" required />
-      <button class="bg-slate-900 text-white px-4 py-2 rounded">Buat API Key</button>
+  <main class="mx-auto max-w-6xl space-y-6 px-4 py-8">
+    <div>
+      <h1 class="text-2xl font-bold text-white">API Keys</h1>
+      <p class="text-sm text-slate-400">Kelola kunci akses REST API untuk bot / aplikasimu.</p>
+    </div>
+
+    <% if (flash) { %>
+      <div class="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-200"><%= flash %></div>
+    <% } %>
+
+    <form method="POST" action="/apikeys" class="card flex flex-wrap gap-3 p-4">
+      <input name="label" placeholder="Label, mis. bot-telegram-prod" class="input flex-1" required />
+      <button class="btn btn-primary">Buat API Key</button>
     </form>
 
-    <div class="bg-white rounded-lg shadow-sm overflow-hidden">
-      <table class="w-full text-sm">
-        <thead class="bg-slate-50 text-slate-500">
-          <tr>
-            <th class="text-left px-4 py-2">Label</th>
-            <th class="text-left px-4 py-2">Public Key</th>
-            <th class="text-left px-4 py-2">Secret</th>
-            <th class="text-left px-4 py-2">Status</th>
-            <th class="text-left px-4 py-2"></th>
-          </tr>
-        </thead>
-        <tbody>
-          <% keys.forEach(function(k) { %>
-            <tr class="border-t">
-              <td class="px-4 py-2"><%= k.label %></td>
-              <td class="px-4 py-2 font-mono text-xs"><%= k.key %></td>
-              <td class="px-4 py-2 font-mono text-xs text-slate-500"><%= k.secret.slice(0, 6) %>…<%= k.secret.slice(-4) %></td>
-              <td class="px-4 py-2"><span class="px-2 py-0.5 rounded text-xs <%= k.isActive ? 'bg-green-100 text-green-700' : 'bg-slate-200 text-slate-600' %>"><%= k.isActive ? 'AKTIF' : 'NONAKTIF' %></span></td>
-              <td class="px-4 py-2 space-x-2">
-                <form method="POST" action="/apikeys/<%= k.id %>/toggle" class="inline"><button class="text-xs text-slate-600 hover:text-slate-900">Toggle</button></form>
-                <form method="POST" action="/apikeys/<%= k.id %>/delete" class="inline" onsubmit="return confirm('Hapus API key ini?')"><button class="text-xs text-red-600 hover:text-red-800">Hapus</button></form>
-              </td>
+    <section class="card overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="text-left text-xs uppercase tracking-wider text-slate-500">
+              <th class="px-5 py-3 font-medium">Label</th>
+              <th class="px-5 py-3 font-medium">Public Key</th>
+              <th class="px-5 py-3 font-medium">Secret</th>
+              <th class="px-5 py-3 font-medium">Status</th>
+              <th class="px-5 py-3 font-medium"></th>
             </tr>
-          <% }) %>
-          <% if (!keys.length) { %>
-            <tr><td class="px-4 py-6 text-center text-slate-400" colspan="5">Belum ada API key.</td></tr>
-          <% } %>
-        </tbody>
-      </table>
-    </div>
+          </thead>
+          <tbody class="divide-y divide-white/5">
+            <% keys.forEach(function (k) { %>
+              <tr class="transition hover:bg-white/[0.03]">
+                <td class="px-5 py-3 text-slate-200"><%= k.label %></td>
+                <td class="px-5 py-3 font-mono text-xs text-brand-300"><%= k.key %></td>
+                <td class="px-5 py-3 font-mono text-xs text-slate-500"><%= k.secret.slice(0, 6) %>…<%= k.secret.slice(-4) %></td>
+                <td class="px-5 py-3">
+                  <span class="badge <%= k.isActive ? 'badge-paid' : 'badge-expired' %>"><%= k.isActive ? 'AKTIF' : 'NONAKTIF' %></span>
+                </td>
+                <td class="px-5 py-3">
+                  <div class="flex items-center justify-end gap-3">
+                    <form method="POST" action="/apikeys/<%= k.id %>/toggle"><button class="text-xs text-slate-400 hover:text-white">Toggle</button></form>
+                    <form method="POST" action="/apikeys/<%= k.id %>/delete" onsubmit="return confirm('Hapus API key ini?')"><button class="text-xs text-rose-400 hover:text-rose-300">Hapus</button></form>
+                  </div>
+                </td>
+              </tr>
+            <% }) %>
+            <% if (!keys.length) { %>
+              <tr><td class="px-5 py-10 text-center text-slate-500" colspan="5">Belum ada API key.</td></tr>
+            <% } %>
+          </tbody>
+        </table>
+      </div>
+    </section>
 
     <!-- =================================================================== -->
     <!-- API DOCUMENTATION                                                    -->
     <!-- =================================================================== -->
-    <section class="bg-white rounded-lg shadow-sm p-6 space-y-6" id="docs">
-      <div class="flex items-start justify-between gap-4">
+    <section class="card space-y-8 p-6" id="docs">
+      <div class="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h2 class="text-xl font-bold">📖 API Documentation</h2>
-          <p class="text-sm text-slate-500 mt-1">Semua yang perlu untuk integrasi ke bot Telegram / aplikasi kamu.</p>
+          <h2 class="text-xl font-bold text-white">API Documentation</h2>
+          <p class="mt-1 text-sm text-slate-400">Semua yang perlu untuk integrasi ke bot Telegram / aplikasimu.</p>
         </div>
-        <div class="text-xs bg-slate-100 rounded px-3 py-2 font-mono">
-          Base URL:<br />
-          <span class="text-slate-800" id="baseUrlDisplay"><%= baseUrl %></span>
+        <div class="rounded-xl border border-white/10 bg-ink-900/60 px-3 py-2 font-mono text-xs">
+          <div class="text-slate-500">Base URL</div>
+          <span class="text-brand-300" id="baseUrlDisplay"><%= baseUrl %></span>
         </div>
       </div>
 
-      <!-- ============ Auth ============ -->
+      <!-- Auth -->
       <div>
-        <h3 class="font-semibold text-slate-800">1. Authentication</h3>
-        <p class="text-sm text-slate-600 mt-1">
-          Setiap request ke <code class="bg-slate-100 px-1 rounded">/api/v1/*</code> wajib
-          menyertakan header <code class="bg-slate-100 px-1 rounded">X-API-Key</code>
-          berisi <em>public key</em>-mu (yang diawali <code>pk_</code>).
+        <h3 class="font-semibold text-white">1. Authentication</h3>
+        <p class="mt-1 text-sm text-slate-400">
+          Setiap request ke <code class="rounded bg-white/10 px-1 text-brand-300">/api/v1/*</code> wajib menyertakan header
+          <code class="rounded bg-white/10 px-1 text-brand-300">X-API-Key</code> berisi <em>public key</em>-mu (diawali <code>pk_</code>).
         </p>
-        <pre class="bg-slate-900 text-slate-100 p-3 rounded text-xs mt-2 overflow-x-auto"><code>X-API-Key: pk_xxxxxxxxxxxxxxxxxxxx</code></pre>
-        <p class="text-xs text-slate-500 mt-1">
-          <em>Secret key</em> (yang diawali <code>sk_</code>) TIDAK digunakan di request —
-          dia dipakai server untuk sign webhook (HMAC-SHA256) sehingga bot kamu
-          bisa verify webhook itu asli dari PG ini.
+        <pre class="mt-2 overflow-x-auto rounded-xl border border-white/10 bg-ink-900/70 p-3 text-xs text-slate-200"><code>X-API-Key: pk_xxxxxxxxxxxxxxxxxxxx</code></pre>
+        <p class="mt-1 text-xs text-slate-500">
+          <em>Secret key</em> (<code>sk_</code>) TIDAK dipakai di request — dia dipakai server untuk sign webhook (HMAC-SHA256)
+          supaya botmu bisa verifikasi webhook itu asli.
         </p>
       </div>
 
-      <!-- ============ Endpoints ============ -->
+      <!-- Endpoints -->
       <div>
-        <h3 class="font-semibold text-slate-800">2. Endpoints</h3>
+        <h3 class="font-semibold text-white">2. Endpoints</h3>
         <div class="mt-3 space-y-4 text-sm">
 
           <!-- Create invoice -->
-          <div class="border rounded-lg overflow-hidden">
-            <div class="bg-emerald-600 text-white px-3 py-2 flex items-center gap-2 text-xs font-mono">
-              <span class="bg-emerald-800 rounded px-2 py-0.5">POST</span>
+          <div class="overflow-hidden rounded-xl border border-white/10">
+            <div class="flex items-center gap-2 bg-emerald-500/15 px-3 py-2 font-mono text-xs text-emerald-200">
+              <span class="rounded bg-emerald-500/30 px-2 py-0.5">POST</span>
               <span>/api/v1/invoices</span>
-              <span class="ml-auto text-emerald-100">Buat invoice baru</span>
+              <span class="ml-auto text-emerald-300/80">Buat invoice baru</span>
             </div>
-            <div class="p-3 space-y-2">
-              <div>
-                <div class="text-xs font-semibold text-slate-500 mb-1">Request body (JSON)</div>
-<pre class="bg-slate-900 text-slate-100 p-3 rounded text-xs overflow-x-auto"><code>{
+            <div class="space-y-2 p-3">
+              <div class="mb-1 text-xs font-semibold uppercase tracking-wider text-slate-500">Request body (JSON)</div>
+<pre class="overflow-x-auto rounded-xl border border-white/10 bg-ink-900/70 p-3 text-xs text-slate-200"><code>{
   "amount": 1000,                          // WAJIB. Integer rupiah, tanpa unique code.
-  "merchant_ref": "ORDER-42",              // OPSIONAL. ID transaksi di sistemmu.
+  "merchant_ref": "ORDER-42",              // OPSIONAL. Kalau kosong, auto jadi "KCS-XXXXXXXX".
   "description": "Beli topup 1rb",         // OPSIONAL.
   "callback_url": "https://mybot/hook",    // OPSIONAL. Webhook saat invoice PAID.
   "provider_id": 1                         // OPSIONAL. Default: provider aktif pertama.
 }</code></pre>
-              </div>
-              <div>
-                <div class="text-xs font-semibold text-slate-500 mb-1">Response 200 OK</div>
-<pre class="bg-slate-900 text-slate-100 p-3 rounded text-xs overflow-x-auto"><code>{
+              <div class="mb-1 text-xs font-semibold uppercase tracking-wider text-slate-500">Response 200 OK</div>
+<pre class="overflow-x-auto rounded-xl border border-white/10 bg-ink-900/70 p-3 text-xs text-slate-200"><code>{
   "reference":         "INV-XXXXXXXXXX",     // ID public. Simpan ini!
-  "merchant_ref":      "ORDER-42",
+  "merchant_ref":      "ORDER-42",           // Ref-mu, atau "KCS-XXXXXXXX" bila auto-generate
   "amount":            1000,                 // Nominal asli
-  "unique_code":       342,                  // 1-999, ditambahkan biar unique
+  "unique_code":       342,                  // 1-999, ditambahkan biar unik
   "total_amount":      1342,                 // Nominal YANG HARUS DIBAYAR
   "status":            "PENDING",
   "qris_string":       "00020101021226...",  // Bisa di-render sendiri jadi QR
@@ -112,41 +120,35 @@
   "pay_url":           "<%= baseUrl %>/pay/INV-XXXXXXXXXX",
   "idempotent_replay": false                 // true = invoice existing dikembalikan
 }</code></pre>
-              </div>
-              <div class="bg-amber-50 border border-amber-200 rounded p-2 text-xs text-amber-900">
-                <div class="font-semibold mb-1">🔁 Idempotency via <code>merchant_ref</code></div>
-                Kalau kamu retry POST dengan <code>merchant_ref</code> yang SAMA
-                (mis. karena bot Telegram-mu timeout &amp; retry), request kedua
-                <strong>tidak</strong> bikin invoice baru — kita balikin invoice
-                PENDING yang sama. Header response berisi
-                <code class="bg-white px-1 rounded">X-Idempotent-Replay: true</code>
-                dan field <code>idempotent_replay: true</code>. Aman untuk
-                di-retry tanpa risiko duplikat.
+              <div class="rounded-xl border border-amber-500/25 bg-amber-500/10 p-3 text-xs text-amber-100">
+                <div class="mb-1 font-semibold">Idempotency via <code>merchant_ref</code></div>
+                Kalau kamu retry POST dengan <code>merchant_ref</code> yang SAMA (mis. bot timeout &amp; retry),
+                request kedua <strong>tidak</strong> bikin invoice baru — kita balikin invoice PENDING yang sama.
+                Header response berisi <code class="rounded bg-white/10 px-1">X-Idempotent-Replay: true</code>
+                dan field <code>idempotent_replay: true</code>.
                 <div class="mt-1">
-                  Kalau <code>merchant_ref</code> sama tapi <code>amount</code> beda →
-                  ditolak dengan HTTP 409 (<code>merchant_ref_conflict</code>).
-                  Cancel invoice lama dulu, atau pakai <code>merchant_ref</code> lain.
+                  Kalau <code>merchant_ref</code> sama tapi <code>amount</code> beda → ditolak HTTP 409
+                  (<code>merchant_ref_conflict</code>).
                 </div>
-              </div>
-              <div class="text-xs text-slate-500">
-                💡 Bot Telegram tinggal ambil <code>qris_image</code> (data URL base64),
-                decode ke bytes, terus kirim pakai <code>sendPhoto</code>. Atau kirim
-                <code>pay_url</code> supaya user buka di browser &amp; scan QR di halaman itu.
+                <div class="mt-1">
+                  <strong>Catatan:</strong> kalau kamu <em>tidak</em> mengirim <code>merchant_ref</code>, sistem
+                  membuatkan ref acak <code>KCS-XXXXXXXX</code> otomatis. Karena selalu unik, ref auto ini
+                  tidak ikut logika idempotency — tiap POST tanpa <code>merchant_ref</code> = invoice baru.
+                </div>
               </div>
             </div>
           </div>
 
           <!-- Get invoice -->
-          <div class="border rounded-lg overflow-hidden">
-            <div class="bg-sky-600 text-white px-3 py-2 flex items-center gap-2 text-xs font-mono">
-              <span class="bg-sky-800 rounded px-2 py-0.5">GET</span>
+          <div class="overflow-hidden rounded-xl border border-white/10">
+            <div class="flex items-center gap-2 bg-sky-500/15 px-3 py-2 font-mono text-xs text-sky-200">
+              <span class="rounded bg-sky-500/30 px-2 py-0.5">GET</span>
               <span>/api/v1/invoices/:reference</span>
-              <span class="ml-auto text-sky-100">Cek status invoice</span>
+              <span class="ml-auto text-sky-300/80">Cek status invoice</span>
             </div>
-            <div class="p-3 space-y-2">
-              <div>
-                <div class="text-xs font-semibold text-slate-500 mb-1">Response 200 OK</div>
-<pre class="bg-slate-900 text-slate-100 p-3 rounded text-xs overflow-x-auto"><code>{
+            <div class="space-y-2 p-3">
+              <div class="mb-1 text-xs font-semibold uppercase tracking-wider text-slate-500">Response 200 OK</div>
+<pre class="overflow-x-auto rounded-xl border border-white/10 bg-ink-900/70 p-3 text-xs text-slate-200"><code>{
   "reference":    "INV-XXXXXXXXXX",
   "merchant_ref": "ORDER-42",
   "amount":       1000,
@@ -157,39 +159,35 @@
   "expired_at":   "2026-07-23T05:00:00.000Z",
   "pay_url":      "<%= baseUrl %>/pay/INV-XXXXXXXXXX"
 }</code></pre>
-              </div>
               <div class="text-xs text-slate-500">
-                Bot bisa poll endpoint ini tiap 3-5 detik sampai status berubah ke
-                <code>PAID</code> / <code>EXPIRED</code> / <code>CANCELLED</code>.
-                Alternatif lebih hemat: pakai webhook <code>callback_url</code>.
+                Bot bisa poll tiap 3-5 detik sampai status berubah. Alternatif lebih hemat: pakai webhook.
               </div>
             </div>
           </div>
 
           <!-- Cancel invoice -->
-          <div class="border rounded-lg overflow-hidden">
-            <div class="bg-rose-600 text-white px-3 py-2 flex items-center gap-2 text-xs font-mono">
-              <span class="bg-rose-800 rounded px-2 py-0.5">POST</span>
+          <div class="overflow-hidden rounded-xl border border-white/10">
+            <div class="flex items-center gap-2 bg-rose-500/15 px-3 py-2 font-mono text-xs text-rose-200">
+              <span class="rounded bg-rose-500/30 px-2 py-0.5">POST</span>
               <span>/api/v1/invoices/:reference/cancel</span>
-              <span class="ml-auto text-rose-100">Batalkan invoice PENDING</span>
+              <span class="ml-auto text-rose-300/80">Batalkan invoice PENDING</span>
             </div>
-            <div class="p-3 space-y-2">
-<pre class="bg-slate-900 text-slate-100 p-3 rounded text-xs overflow-x-auto"><code>{ "ok": true }</code></pre>
-              <div class="text-xs text-slate-500">Cuma bisa cancel invoice yang statusnya masih <code>PENDING</code>.</div>
+            <div class="space-y-2 p-3">
+<pre class="overflow-x-auto rounded-xl border border-white/10 bg-ink-900/70 p-3 text-xs text-slate-200"><code>{ "ok": true }</code></pre>
+              <div class="text-xs text-slate-500">Hanya bisa cancel invoice yang statusnya masih <code>PENDING</code>.</div>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- ============ Webhook ============ -->
+      <!-- Webhook -->
       <div>
-        <h3 class="font-semibold text-slate-800">3. Webhook (opsional tapi direkomendasikan)</h3>
-        <p class="text-sm text-slate-600 mt-1">
-          Kalau kamu isi <code>callback_url</code> waktu bikin invoice, PG akan
-          POST payload berikut ke URL itu <strong>begitu invoice jadi PAID</strong>.
-          Retry 3× dengan jeda 2 detik kalau responsemu non-2xx.
+        <h3 class="font-semibold text-white">3. Webhook (opsional, direkomendasikan)</h3>
+        <p class="mt-1 text-sm text-slate-400">
+          Kalau kamu isi <code>callback_url</code>, PG akan POST payload berikut <strong>begitu invoice jadi PAID</strong>.
+          Retry 3× jeda 2 detik kalau responsemu non-2xx.
         </p>
-<pre class="bg-slate-900 text-slate-100 p-3 rounded text-xs mt-2 overflow-x-auto"><code>Headers:
+<pre class="mt-2 overflow-x-auto rounded-xl border border-white/10 bg-ink-900/70 p-3 text-xs text-slate-200"><code>Headers:
   Content-Type: application/json
   X-Event:      invoice.paid
   X-Signature:  HMAC-SHA256(rawBody, apiKey.secret)   // hex-encoded
@@ -206,73 +204,69 @@ Body:
   "paidAt":       "2026-07-23T04:05:12.000Z",
   "providerType": "orderkuota_jywa"
 }</code></pre>
-        <p class="text-xs text-slate-500 mt-2">
-          Verify di sisi bot (Python):
-        </p>
-<pre class="bg-slate-900 text-slate-100 p-3 rounded text-xs mt-1 overflow-x-auto"><code>import hmac, hashlib
+        <p class="mt-2 text-xs text-slate-500">Verify di sisi bot (Python):</p>
+<pre class="mt-1 overflow-x-auto rounded-xl border border-white/10 bg-ink-900/70 p-3 text-xs text-slate-200"><code>import hmac, hashlib
 expected = hmac.new(SECRET.encode(), raw_body, hashlib.sha256).hexdigest()
 if expected != request.headers.get("X-Signature"):
     return 401</code></pre>
       </div>
 
-      <!-- ============ Error codes ============ -->
+      <!-- Error codes -->
       <div>
-        <h3 class="font-semibold text-slate-800">4. Error responses</h3>
-        <div class="text-sm text-slate-600 mt-1">
-          <table class="w-full text-xs mt-2">
-            <thead class="text-slate-500">
-              <tr class="border-b">
-                <th class="text-left py-1 pr-3">HTTP</th>
-                <th class="text-left py-1 pr-3">error code</th>
-                <th class="text-left py-1">Kenapa &amp; cara handle di bot</th>
+        <h3 class="font-semibold text-white">4. Error responses</h3>
+        <div class="mt-2 overflow-x-auto rounded-xl border border-white/10">
+          <table class="w-full text-xs">
+            <thead class="bg-white/5 text-slate-400">
+              <tr>
+                <th class="px-3 py-2 text-left font-medium">HTTP</th>
+                <th class="px-3 py-2 text-left font-medium">error code</th>
+                <th class="px-3 py-2 text-left font-medium">Kenapa &amp; cara handle di bot</th>
               </tr>
             </thead>
-            <tbody class="font-mono">
-              <tr class="border-b"><td class="py-1 pr-3">401</td><td class="pr-3">missing_api_key / invalid_api_key</td><td class="font-sans">Header X-API-Key salah / kosong / nonaktif.</td></tr>
-              <tr class="border-b"><td class="py-1 pr-3">400</td><td class="pr-3">invalid_amount</td><td class="font-sans">Amount bukan integer positif atau &gt; 9.999.000.</td></tr>
-              <tr class="border-b"><td class="py-1 pr-3">400</td><td class="pr-3">provider_not_found / provider_inactive</td><td class="font-sans"><code>provider_id</code> tidak ada / non-aktif.</td></tr>
-              <tr class="border-b"><td class="py-1 pr-3">400</td><td class="pr-3">no_active_provider</td><td class="font-sans">Belum ada Provider aktif di dashboard.</td></tr>
-              <tr class="border-b"><td class="py-1 pr-3">400</td><td class="pr-3">bad_request</td><td class="font-sans">Body JSON invalid / field wajib kosong.</td></tr>
-              <tr class="border-b bg-amber-50"><td class="py-1 pr-3">409</td><td class="pr-3">merchant_ref_conflict</td><td class="font-sans"><code>merchant_ref</code> sudah dipakai invoice PENDING lain dengan amount berbeda. Cancel dulu / pakai ref lain.</td></tr>
-              <tr class="border-b bg-amber-50"><td class="py-1 pr-3">429</td><td class="pr-3">unique_code_pool_exhausted</td><td class="font-sans">&gt; 999 invoice PENDING dgn amount sama. Response menyertakan header <code>Retry-After: 10</code>. <strong>Bot: sleep 10 detik lalu retry</strong>, atau varietasikan amount.</td></tr>
-              <tr class="border-b"><td class="py-1 pr-3">404</td><td class="pr-3">not_found</td><td class="font-sans">Reference invoice tidak ditemukan.</td></tr>
-              <tr class="border-b"><td class="py-1 pr-3">403</td><td class="pr-3">forbidden</td><td class="font-sans">API key ini bukan pemilik invoice tsb.</td></tr>
-              <tr><td class="py-1 pr-3">400</td><td class="pr-3">invalid_state</td><td class="font-sans">Cancel dipanggil ke invoice non-PENDING.</td></tr>
+            <tbody class="divide-y divide-white/5">
+              <tr><td class="px-3 py-2 font-mono text-slate-300">401</td><td class="px-3 py-2 font-mono text-slate-300">missing_api_key / invalid_api_key</td><td class="px-3 py-2 text-slate-400">Header X-API-Key salah / kosong / nonaktif.</td></tr>
+              <tr><td class="px-3 py-2 font-mono text-slate-300">400</td><td class="px-3 py-2 font-mono text-slate-300">invalid_amount</td><td class="px-3 py-2 text-slate-400">Amount bukan integer positif atau &gt; 9.999.000.</td></tr>
+              <tr><td class="px-3 py-2 font-mono text-slate-300">400</td><td class="px-3 py-2 font-mono text-slate-300">provider_not_found / provider_inactive</td><td class="px-3 py-2 text-slate-400"><code>provider_id</code> tidak ada / non-aktif.</td></tr>
+              <tr><td class="px-3 py-2 font-mono text-slate-300">400</td><td class="px-3 py-2 font-mono text-slate-300">no_active_provider</td><td class="px-3 py-2 text-slate-400">Belum ada Provider aktif di dashboard.</td></tr>
+              <tr><td class="px-3 py-2 font-mono text-slate-300">400</td><td class="px-3 py-2 font-mono text-slate-300">bad_request</td><td class="px-3 py-2 text-slate-400">Body JSON invalid / field wajib kosong.</td></tr>
+              <tr class="bg-amber-500/5"><td class="px-3 py-2 font-mono text-amber-200">409</td><td class="px-3 py-2 font-mono text-amber-200">merchant_ref_conflict</td><td class="px-3 py-2 text-slate-400"><code>merchant_ref</code> sudah dipakai invoice PENDING lain dengan amount berbeda.</td></tr>
+              <tr class="bg-amber-500/5"><td class="px-3 py-2 font-mono text-amber-200">429</td><td class="px-3 py-2 font-mono text-amber-200">unique_code_pool_exhausted</td><td class="px-3 py-2 text-slate-400">&gt; 999 invoice PENDING dgn amount sama. Response berisi header <code>Retry-After: 10</code>. Bot: sleep 10 detik lalu retry.</td></tr>
+              <tr><td class="px-3 py-2 font-mono text-slate-300">404</td><td class="px-3 py-2 font-mono text-slate-300">not_found</td><td class="px-3 py-2 text-slate-400">Reference invoice tidak ditemukan.</td></tr>
+              <tr><td class="px-3 py-2 font-mono text-slate-300">403</td><td class="px-3 py-2 font-mono text-slate-300">forbidden</td><td class="px-3 py-2 text-slate-400">API key ini bukan pemilik invoice tsb.</td></tr>
+              <tr><td class="px-3 py-2 font-mono text-slate-300">400</td><td class="px-3 py-2 font-mono text-slate-300">invalid_state</td><td class="px-3 py-2 text-slate-400">Cancel dipanggil ke invoice non-PENDING.</td></tr>
             </tbody>
           </table>
         </div>
       </div>
 
-      <!-- ============ Code examples ============ -->
+      <!-- Code examples -->
       <div>
-        <h3 class="font-semibold text-slate-800">5. Contoh Kode</h3>
-
-        <!-- Language tabs -->
-        <div class="mt-3 border-b flex gap-1 text-xs">
-          <button data-tab="curl" class="tab-btn px-3 py-2 border-b-2 border-slate-900 font-semibold">cURL</button>
-          <button data-tab="python" class="tab-btn px-3 py-2 border-b-2 border-transparent text-slate-500 hover:text-slate-900">Python (requests)</button>
-          <button data-tab="pyTelegramBot" class="tab-btn px-3 py-2 border-b-2 border-transparent text-slate-500 hover:text-slate-900">🤖 Bot Telegram (Python)</button>
-          <button data-tab="node" class="tab-btn px-3 py-2 border-b-2 border-transparent text-slate-500 hover:text-slate-900">Node.js (axios)</button>
+        <h3 class="font-semibold text-white">5. Contoh Kode</h3>
+        <div class="mt-3 flex gap-1 overflow-x-auto border-b border-white/10 text-xs">
+          <button data-tab="curl" class="tab-btn border-b-2 border-brand-400 px-3 py-2 font-semibold text-white">cURL</button>
+          <button data-tab="python" class="tab-btn border-b-2 border-transparent px-3 py-2 text-slate-500 hover:text-white">Python (requests)</button>
+          <button data-tab="pyTelegramBot" class="tab-btn whitespace-nowrap border-b-2 border-transparent px-3 py-2 text-slate-500 hover:text-white">Bot Telegram (Python)</button>
+          <button data-tab="node" class="tab-btn border-b-2 border-transparent px-3 py-2 text-slate-500 hover:text-white">Node.js (axios)</button>
         </div>
 
         <!-- cURL -->
         <div class="tab-panel" data-tab="curl">
-          <div class="text-xs text-slate-500 mt-3 mb-1">Buat invoice</div>
-<pre class="bg-slate-900 text-slate-100 p-3 rounded text-xs overflow-x-auto"><code>curl -X POST <%= baseUrl %>/api/v1/invoices \
+          <div class="mb-1 mt-3 text-xs text-slate-500">Buat invoice</div>
+<pre class="overflow-x-auto rounded-xl border border-white/10 bg-ink-900/70 p-3 text-xs text-slate-200"><code>curl -X POST <%= baseUrl %>/api/v1/invoices \
   -H "X-API-Key: pk_YOUR_KEY_HERE" \
   -H "Content-Type: application/json" \
   -d '{"amount": 1000, "merchant_ref": "ORDER-42", "description": "Test"}'</code></pre>
-          <div class="text-xs text-slate-500 mt-3 mb-1">Cek status</div>
-<pre class="bg-slate-900 text-slate-100 p-3 rounded text-xs overflow-x-auto"><code>curl <%= baseUrl %>/api/v1/invoices/INV-XXXXXXXXXX \
+          <div class="mb-1 mt-3 text-xs text-slate-500">Cek status</div>
+<pre class="overflow-x-auto rounded-xl border border-white/10 bg-ink-900/70 p-3 text-xs text-slate-200"><code>curl <%= baseUrl %>/api/v1/invoices/INV-XXXXXXXXXX \
   -H "X-API-Key: pk_YOUR_KEY_HERE"</code></pre>
-          <div class="text-xs text-slate-500 mt-3 mb-1">Cancel</div>
-<pre class="bg-slate-900 text-slate-100 p-3 rounded text-xs overflow-x-auto"><code>curl -X POST <%= baseUrl %>/api/v1/invoices/INV-XXXXXXXXXX/cancel \
+          <div class="mb-1 mt-3 text-xs text-slate-500">Cancel</div>
+<pre class="overflow-x-auto rounded-xl border border-white/10 bg-ink-900/70 p-3 text-xs text-slate-200"><code>curl -X POST <%= baseUrl %>/api/v1/invoices/INV-XXXXXXXXXX/cancel \
   -H "X-API-Key: pk_YOUR_KEY_HERE"</code></pre>
         </div>
 
         <!-- Python -->
         <div class="tab-panel hidden" data-tab="python">
-<pre class="bg-slate-900 text-slate-100 p-3 rounded text-xs mt-3 overflow-x-auto"><code>import requests
+<pre class="mt-3 overflow-x-auto rounded-xl border border-white/10 bg-ink-900/70 p-3 text-xs text-slate-200"><code>import requests
 
 BASE = "<%= baseUrl %>"
 KEY  = "pk_YOUR_KEY_HERE"
@@ -308,12 +302,11 @@ while True:
 
         <!-- Python Telegram Bot -->
         <div class="tab-panel hidden" data-tab="pyTelegramBot">
-          <p class="text-xs text-slate-500 mt-3">Contoh minimal pakai
-            <a class="text-blue-600 hover:underline" href="https://github.com/python-telegram-bot/python-telegram-bot" target="_blank">python-telegram-bot</a>
-            v20+. User kirim <code>/buy 1000</code>, bot bikin invoice, kirim gambar
-            QRIS, dan auto-notify pas dibayar.
+          <p class="mt-3 text-xs text-slate-500">Contoh minimal pakai
+            <a class="link" href="https://github.com/python-telegram-bot/python-telegram-bot" target="_blank">python-telegram-bot</a>
+            v20+.
           </p>
-<pre class="bg-slate-900 text-slate-100 p-3 rounded text-xs mt-2 overflow-x-auto"><code>import asyncio, base64, io, requests
+<pre class="mt-2 overflow-x-auto rounded-xl border border-white/10 bg-ink-900/70 p-3 text-xs text-slate-200"><code>import asyncio, base64, io, requests
 from telegram import Update, InputFile
 from telegram.ext import Application, CommandHandler, ContextTypes
 
@@ -322,9 +315,6 @@ PG_API_KEY = "pk_YOUR_KEY_HERE"
 BOT_TOKEN  = "1234567:AAxxxx"        # dari @BotFather
 
 def create_invoice(amount: int, chat_id: int, order_id: str) -> dict:
-    # `merchant_ref` = idempotency key. Kalau bot sudah panggil create_invoice()
-    # untuk order_id yang sama & invoice-nya masih PENDING, PG balikin invoice
-    # existing (bukan bikin duplikat). Ideal untuk retry setelah network error.
     r = requests.post(
         f"{PG_BASE}/api/v1/invoices",
         headers={"X-API-Key": PG_API_KEY, "Content-Type": "application/json"},
@@ -336,7 +326,6 @@ def create_invoice(amount: int, chat_id: int, order_id: str) -> dict:
         timeout=15,
     )
     if r.status_code == 429:
-        # Pool unique_code habis. Sleep sesuai Retry-After, lalu retry.
         import time
         time.sleep(int(r.headers.get("Retry-After", "10")))
         return create_invoice(amount, chat_id, order_id)
@@ -348,54 +337,43 @@ async def buy(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         return await update.message.reply_text("Usage: /buy &lt;amount&gt;")
     amount   = int(ctx.args[0])
     chat_id  = update.effective_chat.id
-    order_id = str(update.message.message_id)   # unique per message
+    order_id = str(update.message.message_id)
     inv      = create_invoice(amount, chat_id, order_id)
 
-    # decode qris_image (data:image/png;base64,...) → bytes → kirim sebagai foto
     png = base64.b64decode(inv["qris_image"].split(",", 1)[1])
     caption = (
-        f"💰 Bayar sebesar *Rp {inv['total_amount']:,}*\n"
-        f"Reference: `{inv['reference']}`\n"
+        f"Bayar sebesar Rp {inv['total_amount']:,}\n"
+        f"Reference: {inv['reference']}\n"
         f"Expired: {inv['expired_at']}"
     )
     await update.message.reply_photo(
         photo=InputFile(io.BytesIO(png), filename="qris.png"),
         caption=caption,
-        parse_mode="Markdown",
     )
-
-    # background task: poll status sampai PAID/EXPIRED, kirim notif ke user
     asyncio.create_task(watch_invoice(ctx, chat_id, inv["reference"]))
 
 async def watch_invoice(ctx, chat_id, reference):
-    for _ in range(300):                     # max ~15 menit @3s = 300 tries
+    for _ in range(300):
         await asyncio.sleep(3)
-        r = requests.get(
+        s = requests.get(
             f"{PG_BASE}/api/v1/invoices/{reference}",
-            headers={"X-API-Key": PG_API_KEY},
-            timeout=10,
-        )
-        s = r.json()
+            headers={"X-API-Key": PG_API_KEY}, timeout=10,
+        ).json()
         if s["status"] == "PAID":
-            await ctx.bot.send_message(chat_id, f"✅ Pembayaran {reference} DITERIMA!")
+            await ctx.bot.send_message(chat_id, f"Pembayaran {reference} DITERIMA!")
             return
         if s["status"] in ("EXPIRED", "CANCELLED"):
-            await ctx.bot.send_message(chat_id, f"❌ Invoice {reference} {s['status']}")
+            await ctx.bot.send_message(chat_id, f"Invoice {reference} {s['status']}")
             return
 
 app = Application.builder().token(BOT_TOKEN).build()
 app.add_handler(CommandHandler("buy", buy))
 app.run_polling()</code></pre>
-          <p class="text-xs text-slate-500 mt-2">
-            Untuk skala lebih besar, ganti polling dengan webhook: server bot
-            terima POST di <code>callback_url</code>, verify <code>X-Signature</code>,
-            terus kirim notif ke user.
-          </p>
         </div>
 
         <!-- Node.js -->
         <div class="tab-panel hidden" data-tab="node">
-<pre class="bg-slate-900 text-slate-100 p-3 rounded text-xs mt-3 overflow-x-auto"><code>const axios = require('axios');
+<pre class="mt-3 overflow-x-auto rounded-xl border border-white/10 bg-ink-900/70 p-3 text-xs text-slate-200"><code>const axios = require('axios');
 
 const pg = axios.create({
   baseURL: '<%= baseUrl %>/api/v1',
@@ -403,7 +381,6 @@ const pg = axios.create({
 });
 
 async function main() {
-  // 1. Buat invoice
   const { data: inv } = await pg.post('/invoices', {
     amount:       1000,
     merchant_ref: 'ORDER-42',
@@ -411,9 +388,7 @@ async function main() {
   });
   console.log('Reference:', inv.reference);
   console.log('Bayar Rp', inv.total_amount);
-  console.log('Pay URL :', inv.pay_url);
 
-  // 2. Poll status tiap 3 detik
   while (true) {
     await new Promise((r) => setTimeout(r, 3000));
     const { data: s } = await pg.get(`/invoices/${inv.reference}`);
@@ -426,67 +401,37 @@ main().catch(console.error);</code></pre>
         </div>
       </div>
 
-      <!-- ============ Notes ============ -->
-      <div class="bg-blue-50 border border-blue-200 rounded p-3 text-xs text-slate-700">
-        <div class="font-semibold text-blue-900 mb-1">💡 Konsep &amp; batasan yang perlu dipahami</div>
-        <ul class="list-disc pl-5 space-y-1.5">
-          <li><strong>Bagaimana pembayaran di-match ke invoice?</strong>
-            QRIS dari bank / OrderKuota <em>tidak</em> membawa <code>merchant_ref</code>
-            kita. Yang muncul di mutasi cuma nominal, keterangan, dan ID
-            transaksi dari sisi bank. Jadi satu-satunya cara kita bedain
-            invoice adalah <strong>lewat nominal yang unik</strong>. Karena
-            itu setiap invoice ditambahi <code>unique_code</code> 1-999
-            rupiah — user bayar <code>total_amount</code>, bukan
-            <code>amount</code>.</li>
-          <li><strong>Idempotency:</strong> kirim <code>merchant_ref</code>
-            di setiap POST invoice — retry berapa kali pun aman, tidak
-            akan bikin duplikat selama invoice yang lama masih PENDING.
-            Kalau kamu tidak kirim <code>merchant_ref</code>, setiap POST
-            akan bikin invoice baru.</li>
-          <li><strong>Race-safe:</strong> pemilihan <code>unique_code</code> +
-            insert Invoice di-serialisasi di dalam satu DB transaction.
-            Dua request POST yang masuk bersamaan dengan <code>amount</code>
-            sama dijamin tidak akan pernah dapat <code>total_amount</code>
-            yang sama.</li>
-          <li><strong>Kalau nominal &amp; kode unik sama di dua invoice
-            (skenario ekstrem):</strong> selama mekanisme di atas berjalan
-            (idempotency + transaction), <em>tidak akan terjadi</em>.
-            Andaikan tetap terjadi (bug atau bypass langsung ke DB),
-            matcher akan pilih invoice <strong>tertua yang PENDING</strong>
-            (FIFO by <code>createdAt</code>). Kita <em>tidak bisa</em> pakai
-            <code>merchant_ref</code> untuk disambiguate — field itu tidak
-            pernah sampai ke sisi bank / OK.</li>
-          <li><strong>Pool <code>unique_code</code> maksimum 999 per
-            amount.</strong> Kalau invoice PENDING dengan <code>amount</code>
-            sama sudah > 999, POST invoice ke-1000 akan return HTTP 429
-            (<code>unique_code_pool_exhausted</code>). Bot: sleep 10 detik
-            (lihat header <code>Retry-After</code>) lalu retry, atau
-            varietasikan amount (1000, 1001, 1002, ...).</li>
-          <li><strong>Poller</strong> jalan setiap ~10 detik untuk cek
-            mutasi masuk. Setelah pembayaran diterima OK, invoice paling
-            lama 10 detik berubah ke <code>PAID</code>.</li>
-          <li><strong>Invoice expire</strong> default 15 menit (ubah lewat
-            <code>INVOICE_EXPIRE_MINUTES</code> di <code>.env</code>).
-            Semakin cepat expire → pool <code>unique_code</code> berputar
-            makin cepat.</li>
+      <!-- Notes -->
+      <div class="rounded-xl border border-brand-400/20 bg-brand-500/5 p-4 text-xs text-slate-300">
+        <div class="mb-1 font-semibold text-brand-300">Konsep &amp; batasan yang perlu dipahami</div>
+        <ul class="list-disc space-y-1.5 pl-5">
+          <li><strong>Matching pembayaran:</strong> QRIS dari bank / OrderKuota tidak membawa <code>merchant_ref</code>.
+            Yang muncul di mutasi cuma nominal. Jadi tiap invoice ditambahi <code>unique_code</code> 1-999 rupiah — user bayar
+            <code>total_amount</code>, bukan <code>amount</code>.</li>
+          <li><strong>Idempotency:</strong> kirim <code>merchant_ref</code> sendiri kalau butuh retry aman.
+            Tanpa <code>merchant_ref</code>, sistem auto-generate <code>KCS-XXXXXXXX</code> dan tiap POST bikin invoice baru.</li>
+          <li><strong>Race-safe:</strong> pemilihan <code>unique_code</code> + insert Invoice diserialisasi dalam satu DB transaction.</li>
+          <li><strong>Pool <code>unique_code</code> maks. 999 per amount.</strong> Kalau habis → HTTP 429. Bot: sleep sesuai
+            <code>Retry-After</code> lalu retry, atau varietasikan amount.</li>
+          <li><strong>Poller</strong> jalan ~10 detik sekali. Invoice expire default 15 menit (<code>INVOICE_EXPIRE_MINUTES</code>).</li>
         </ul>
       </div>
     </section>
   </main>
 
   <script>
-    // Tab switcher untuk contoh kode
-    document.querySelectorAll('.tab-btn').forEach((btn) => {
-      btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () {
         const t = btn.dataset.tab;
-        document.querySelectorAll('.tab-btn').forEach((b) => {
+        document.querySelectorAll('.tab-btn').forEach(function (b) {
           const active = b.dataset.tab === t;
-          b.classList.toggle('border-slate-900', active);
+          b.classList.toggle('border-brand-400', active);
+          b.classList.toggle('text-white', active);
           b.classList.toggle('font-semibold', active);
           b.classList.toggle('border-transparent', !active);
           b.classList.toggle('text-slate-500', !active);
         });
-        document.querySelectorAll('.tab-panel').forEach((p) => {
+        document.querySelectorAll('.tab-panel').forEach(function (p) {
           p.classList.toggle('hidden', p.dataset.tab !== t);
         });
       });
